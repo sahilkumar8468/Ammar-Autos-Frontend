@@ -216,17 +216,9 @@ export default function SaleList({ category }) {
     }
   };
 
-  const addPhoto = async (field, file) => {
+  const addPhoto = (field, file) => {
     if (!file) return;
-    const body = new FormData();
-    body.append("photo", file);
-    try {
-      const res = await fetch(`${URL}/upload`, { method: "POST", body });
-      const data = await res.json();
-      if (data.success) update(field, [...form[field], data.url]);
-    } catch (e) {
-      console.error("Upload failed:", e);
-    }
+    update(field, [...form[field], file]);
   };
   const removePhoto = (field, index) =>
     update(field, form[field].filter((_, i) => i !== index));
@@ -236,12 +228,40 @@ export default function SaleList({ category }) {
     setSubmitting(true);
     setFormError("");
     try {
+      // 1. Upload new photos first
+      const uploadPendingPhotos = async (photos) => {
+        const result = [];
+        for (const photo of photos) {
+          if (photo instanceof File) {
+            const body = new FormData();
+            body.append("photo", photo);
+            const res = await fetch(`${URL}/upload`, { method: "POST", body });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || "Photo upload failed");
+            result.push(data.url);
+          } else {
+            result.push(photo); // existing url
+          }
+        }
+        return result;
+      };
+
+      const finalBuyerPhotos = await uploadPendingPhotos(form.buyerPhotos);
+      const finalSalerPhotos = await uploadPendingPhotos(form.salerPhotos);
+
+      const payload = {
+        ...form,
+        category,
+        buyerPhotos: finalBuyerPhotos,
+        salerPhotos: finalSalerPhotos,
+      };
+
       const url = editId ? `${URL}/sale/${editId}` : `${URL}/sale`;
       const method = editId ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, category }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save");
@@ -546,13 +566,15 @@ export default function SaleList({ category }) {
                     </label>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {form.buyerPhotos.map((url, idx) => (
+                    {form.buyerPhotos.map((photo, idx) => {
+                      const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
+                      return (
                       <div key={idx} className="relative w-16 h-16">
-                        <img src={url} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                        <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
                         <button type="button" onClick={() => removePhoto("buyerPhotos", idx)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               </div>
@@ -593,13 +615,15 @@ export default function SaleList({ category }) {
                     </label>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {form.salerPhotos.map((url, idx) => (
+                    {form.salerPhotos.map((photo, idx) => {
+                      const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
+                      return (
                       <div key={idx} className="relative w-16 h-16">
-                        <img src={url} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                        <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
                         <button type="button" onClick={() => removePhoto("salerPhotos", idx)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               </div>
