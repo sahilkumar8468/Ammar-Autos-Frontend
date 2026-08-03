@@ -1,7 +1,7 @@
-" use client\;
+"use client";
 
-import SalesPage from \../pages/sales/page\;
+import SalesPage from "../pages/sales/page";
 
 export default function Page() {
- return <SalesPage category=\company\ />;
+  return <SalesPage category="company" />;
 }
