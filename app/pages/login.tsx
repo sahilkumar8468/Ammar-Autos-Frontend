@@ -49,8 +49,10 @@ export default function LoginPage() {
       }
       localStorage.setItem("authToken", data.token);
       router.replace("/dashboard");
-    } catch (err) {
-      setError(err.message || "Unexpected error");
+    } catch (err: unknown) {
+      const error =
+        err instanceof Error ? err.message : "Unexpected error";
+      setError(error);
     } finally {
       setLoading(false);
     }
