@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2 } from "lucide-react";
 
-const URL = process.env.BASE_URL;
+const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 const CATEGORY_LABELS = {
   company: "Customer Purchase",
