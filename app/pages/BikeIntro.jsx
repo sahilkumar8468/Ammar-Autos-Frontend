@@ -17,6 +17,15 @@ export default function BikeIntro({ onDone }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
 
+  // Pre-compute spoke coordinates with fixed precision to avoid SSR/client mismatch
+  const spokes = [...Array(12)].map((_, i) => {
+    const angle = (i * 30 * Math.PI) / 180;
+    return {
+      x2: (40 * Math.cos(angle)).toFixed(4),
+      y2: (40 * Math.sin(angle)).toFixed(4),
+    };
+  });
+
   // Bike Component Refs
   const frontWheelRef = useRef(null);
   const frontWheelSpinRef = useRef(null);
@@ -173,13 +182,13 @@ export default function BikeIntro({ onDone }) {
                 <circle r="46" fill="none" stroke="#94a3b8" strokeWidth="2" />
                 <circle r="7" fill="#cbd5e1" />
                 {/* 36 Spokes representation */}
-                {[...Array(12)].map((_, i) => (
+                {spokes.map((s, i) => (
                   <line
                     key={i}
                     x1="0"
                     y1="0"
-                    x2={40 * Math.cos((i * 30 * Math.PI) / 180)}
-                    y2={40 * Math.sin((i * 30 * Math.PI) / 180)}
+                    x2={s.x2}
+                    y2={s.y2}
                     stroke="#cbd5e1"
                     strokeWidth="1.2"
                   />
@@ -308,13 +317,13 @@ export default function BikeIntro({ onDone }) {
                 <circle r="46" fill="none" stroke="#0f172a" strokeWidth="8" />
                 <circle r="46" fill="none" stroke="#94a3b8" strokeWidth="2" />
                 <circle r="7" fill="#cbd5e1" />
-                {[...Array(12)].map((_, i) => (
+                {spokes.map((s, i) => (
                   <line
                     key={i}
                     x1="0"
                     y1="0"
-                    x2={40 * Math.cos((i * 30 * Math.PI) / 180)}
-                    y2={40 * Math.sin((i * 30 * Math.PI) / 180)}
+                    x2={s.x2}
+                    y2={s.y2}
                     stroke="#cbd5e1"
                     strokeWidth="1.2"
                   />

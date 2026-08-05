@@ -2,25 +2,34 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, DollarSign, Loader2, RefreshCw, FileDown } from "lucide-react";
+import { ArrowLeft, Package, DollarSign, Loader2, RefreshCw, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { downloadInventoryPDF } from "@/app/lib/pdfUtils";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
+const PAGE_SIZE = 10;
 
 export default function InventoryDashboard() {
   const router = useRouter();
   const [inventory, setInventory] = useState([]);
   const [summary, setSummary] = useState({ totalPurchased: 0, totalPurchaseValue: 0, remainingBalance: 0 });
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const fetchInventory = async () => {
+  const fetchInventory = async (pageNum = 1) => {
     setLoading(true);
     try {
-      const res = await fetch(`${URL}/inventory`);
+      const res = await fetch(`${URL}/inventory?page=${pageNum}&limit=${PAGE_SIZE}`);
       const data = await res.json();
       if (res.ok) {
         setInventory(data.data || []);
         if (data.summary) setSummary(data.summary);
+        if (data.pagination) {
+          setPage(data.pagination.page);
+          setTotalPages(data.pagination.totalPages);
+          setTotal(data.pagination.total);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -29,7 +38,7 @@ export default function InventoryDashboard() {
     }
   };
 
-  useEffect(() => { fetchInventory(); }, []);
+  useEffect(() => { fetchInventory(page); }, [page]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
@@ -52,7 +61,7 @@ export default function InventoryDashboard() {
             >
               <FileDown size={16} /> Download PDF
             </button>
-            <button onClick={fetchInventory} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+            <button onClick={() => fetchInventory(page)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><RefreshCw size={16} /></button>
             <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">
               <ArrowLeft size={16} /> Back to Dashboard
             </button>
@@ -87,7 +96,7 @@ export default function InventoryDashboard() {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Purchased Bikes List ({inventory.length})</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Purchased Bikes List ({total})</h2>
             <button
               onClick={() => downloadInventoryPDF(inventory, summary)}
               className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-all"
@@ -125,6 +134,44 @@ export default function InventoryDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4">
+              <p className="text-xs text-slate-500">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`text-xs font-bold w-8 h-8 rounded-lg transition-all ${
+                      p === page
+                        ? "bg-slate-900 text-white shadow-md"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           )}
         </div>

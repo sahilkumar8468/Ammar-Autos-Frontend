@@ -10,8 +10,8 @@ import LocalPurchase from "./LocalPurchase";
 const purchaseCategories = [
   {
     icon: <UserCheck size={28} />,
-    label: "Customer Purchase",
-    description: "Direct purchases by walk-in customers",
+    label: "Company Purchase",
+    description: "Direct purchases by Company",
     color: "bg-blue-50 text-blue-600 hover:bg-blue-100",
     key: "company",
   },

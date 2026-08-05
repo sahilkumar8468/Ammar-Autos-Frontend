@@ -212,7 +212,7 @@ export default function CompanyPurchase({ goBack }) {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">Ammar Autos</h1>
-              <p className="text-xs text-slate-500 font-medium -mt-0.5">Customer Purchase</p>
+              <p className="text-xs text-slate-500 font-medium -mt-0.5">Company purchase</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

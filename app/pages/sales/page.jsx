@@ -11,7 +11,7 @@ import { downloadSalePDF } from "@/app/lib/pdfUtils";
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 const CATEGORY_LABELS = {
-  company: "Customer Sale",
+  company: "Company Sale",
   dealer: "Dealer Sale",
   local_customer: "Local Customer Sale",
 };
@@ -23,6 +23,7 @@ const emptyForm = {
   chasisNo: "",
   engineNo: "",
   linkedPurchaseId: null,
+  category: "local_customer",
 
   buyerName: "",
   buyerFatherName: "",
@@ -60,7 +61,7 @@ const formatDate = (value) => {
   return isNaN(d) ? "—" : d.toLocaleDateString();
 };
 
-export default function SaleList({ category }) {
+export default function SaleList({ category = "company" }) {
   const router = useRouter();
   const label = CATEGORY_LABELS[category] || "Sale";
 
@@ -125,25 +126,7 @@ export default function SaleList({ category }) {
       chasisNo: s.chasisNo || "",
       engineNo: s.engineNo || "",
       linkedPurchaseId: s.linkedPurchaseId || null,
-      buyerName: s.buyerName || "",
-      buyerFatherName: s.buyerFatherName || "",
-      buyerCnic: s.buyerCnic || "",
-      buyerCurrentAddress: s.buyerCurrentAddress || "",
-      buyerPermanentAddress: s.buyerPermanentAddress || "",
-      addressSameAsPermanent: !!s.addressSameAsPermanent,
-      buyerPhotos: s.buyerPhotos || [],
-      salerName: s.salerName || "",
-      salerNumber: s.salerNumber || "",
-      salerCnic: s.salerCnic || "",
-      salerAddress: s.salerAddress || "",
-      salerPhotos: s.salerPhotos || [],
-      saleDateTime: "",
-      totalSaleAmount: s.totalSaleAmount || "",
-      advanceReceived: s.advanceReceived || "",
-      saleType: s.saleType || "cash",
-      installmentMonths: s.installmentMonths || "",
-      perMonthInstallment: s.perMonthInstallment || "",
-      installmentStartDate: "",
+      category: s.category || "local_customer",
     });
     setEditId(s.id);
     setFormError("");
@@ -184,6 +167,7 @@ export default function SaleList({ category }) {
     if (value.toUpperCase() === "AFR") {
       setRegLookupStatus("afr");
       update("linkedPurchaseId", null);
+      update("category", "local_customer");
       return;
     }
 
@@ -194,6 +178,7 @@ export default function SaleList({ category }) {
       if (!data.found) {
         setRegLookupStatus("new");
         update("linkedPurchaseId", null);
+        update("category", "local_customer");
         return;
       }
       if (data.alreadySold) {
@@ -209,6 +194,7 @@ export default function SaleList({ category }) {
         engineNo: data.data.engineNo,
         registrationNo: data.data.registrationNo,
         linkedPurchaseId: data.purchaseId,
+        category: data.purchaseCategory || "local_customer",
       }));
       setRegLookupStatus("found");
     } catch (e) {
@@ -251,7 +237,6 @@ export default function SaleList({ category }) {
 
       const payload = {
         ...form,
-        category,
         buyerPhotos: finalBuyerPhotos,
         salerPhotos: finalSalerPhotos,
       };
