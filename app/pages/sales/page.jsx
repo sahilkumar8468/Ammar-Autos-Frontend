@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil,
-  Search, TrendingUp, Bike as BikeIcon, FileDown
+  Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 
@@ -71,7 +71,13 @@ export default function SaleList({ category = "company" }) {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [month, setMonth] = useState(currentMonth());
+  const [month, setMonth] = useState(""); // blank = show all, pick a month to filter
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 10;
 
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,30 +86,41 @@ export default function SaleList({ category = "company" }) {
   const [editId, setEditId] = useState(null);
   const [regLookupStatus, setRegLookupStatus] = useState(null); // "found" | "afr" | "new" | "sold"
 
-  const fetchSales = useCallback(async () => {
+  const fetchSales = useCallback(async (overridePage) => {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ category });
+      const currentPage = overridePage !== undefined ? overridePage : page;
+      const params = new URLSearchParams({ category, limit: PAGE_SIZE });
+      params.set("page", currentPage);
       if (month) params.set("month", month);
       if (search.trim()) params.set("search", search.trim());
 
+      const statsParams = new URLSearchParams();
+      if (month) statsParams.set("month", month);
+
       const [salesRes, statsRes] = await Promise.all([
         fetch(`${URL}/sale?${params.toString()}`),
-        fetch(`${URL}/sale/stats?month=${month}`),
+        fetch(`${URL}/sale/stats?${statsParams.toString()}`),
       ]);
       const salesData = await salesRes.json();
       const statsData = await statsRes.json();
 
       if (!salesRes.ok) throw new Error(salesData.message || "Failed to fetch");
       setSales(salesData.data || []);
+      setTotalCount(salesData.totalCount || 0);
+      setTotalPages(salesData.totalPages || 1);
       if (statsRes.ok) setStats(statsData);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [category, month, search]);
+  }, [category, month, search, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [month, search]);
 
   useEffect(() => {
     const t = setTimeout(fetchSales, search ? 350 : 0);
@@ -111,7 +128,7 @@ export default function SaleList({ category = "company" }) {
   }, [fetchSales, search]);
 
   const openAdd = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, category });
     setEditId(null);
     setFormError("");
     setRegLookupStatus(null);
@@ -126,7 +143,31 @@ export default function SaleList({ category = "company" }) {
       chasisNo: s.chasisNo || "",
       engineNo: s.engineNo || "",
       linkedPurchaseId: s.linkedPurchaseId || null,
-      category: s.category || "local_customer",
+      category: s.category || category,
+
+      buyerName: s.buyerName || "",
+      buyerFatherName: s.buyerFatherName || "",
+      buyerCnic: s.buyerCnic || "",
+      buyerCurrentAddress: s.buyerCurrentAddress || "",
+      buyerPermanentAddress: s.buyerPermanentAddress || "",
+      addressSameAsPermanent: s.addressSameAsPermanent || false,
+      buyerPhotos: s.buyerPhotos || [],
+
+      salerName: s.salerName || "",
+      salerNumber: s.salerNumber || "",
+      salerCnic: s.salerCnic || "",
+      salerAddress: s.salerAddress || "",
+      salerPhotos: s.salerPhotos || [],
+
+      saleDateTime: s.saleDateTime?.seconds
+        ? new Date(s.saleDateTime.seconds * 1000).toISOString().slice(0, 16)
+        : s.saleDateTime || "",
+      totalSaleAmount: s.totalSaleAmount || "",
+      advanceReceived: s.advanceReceived || "",
+      saleType: s.saleType || "cash",
+      installmentMonths: s.installmentMonths || "",
+      perMonthInstallment: s.perMonthInstallment || "",
+      installmentStartDate: s.installmentStartDate || "",
     });
     setEditId(s.id);
     setFormError("");
@@ -251,7 +292,8 @@ export default function SaleList({ category = "company" }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save");
       closeForm();
-      fetchSales();
+      setPage(1);
+      fetchSales(1);
     } catch (e) {
       setFormError(e.message);
     } finally {
@@ -265,7 +307,8 @@ export default function SaleList({ category = "company" }) {
       const res = await fetch(`${URL}/sale/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      fetchSales();
+      setPage(1);
+      fetchSales(1);
     } catch (e) {
       alert(e.message);
     }
@@ -355,9 +398,9 @@ export default function SaleList({ category = "company" }) {
             onChange={(e) => setMonth(e.target.value)}
             className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-white"
           />
-          {(search || month !== currentMonth()) && (
+          {(search || month) && (
             <button
-              onClick={() => { setSearch(""); setMonth(currentMonth()); }}
+              onClick={() => { setSearch(""); setMonth(""); setPage(1); }}
               className="text-sm font-semibold text-slate-500 hover:text-slate-900 px-3"
             >
               Clear
@@ -393,7 +436,7 @@ export default function SaleList({ category = "company" }) {
                 <tbody>
                   {sales.map((s, i) => (
                     <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150">
-                      <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
+                      <td className="px-4 py-3 text-slate-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
                       <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">
                         {s.registrationStatus === "AFR" ? "AFR" : s.registrationNo || "—"}
                       </td>
@@ -428,6 +471,41 @@ export default function SaleList({ category = "company" }) {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+              .reduce((acc, n, idx, arr) => {
+                if (idx > 0 && n - arr[idx - 1] > 1) acc.push("...");
+                acc.push(n);
+                return acc;
+              }, [])
+              .map((item, idx) =>
+                item === "..." ? (
+                  <span key={`dots-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                ) : (
+                  <button key={item} onClick={() => setPage(item)} className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all duration-200 ${page === item ? "bg-slate-900 text-white shadow-md" : "border border-slate-200 text-slate-600 hover:bg-slate-100"}`}>
+                    {item}
+                  </button>
+                )
+              )}
+            <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Record count summary */}
+        {totalCount > 0 && (
+          <p className="text-center text-xs text-slate-400 mt-2">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} records
+          </p>
+        )}
       </main>
 
       {/* Add / Edit Modal */}
