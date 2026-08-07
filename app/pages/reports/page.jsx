@@ -59,19 +59,28 @@ export default function ReportsDashboard() {
   // Helper: parse date from Firestore timestamp or string
   const parseDate = (val) => {
     if (!val) return null;
-    if (val?.seconds) return new Date(val.seconds * 1000);
+    // Firestore Timestamp serialized as { seconds, nanoseconds } (older SDK)
+    if (val.seconds != null) return new Date(val.seconds * 1000);
+    // Firestore Timestamp serialized as { _seconds, _nanoseconds } (newer SDK)
+    if (val._seconds != null) return new Date(val._seconds * 1000);
+    // Firestore Timestamp with toDate() (if called server-side before serialization)
+    if (typeof val.toDate === "function") return val.toDate();
+    // ISO string or other parseable format
     const d = new Date(val);
-    return isNaN(d) ? null : d;
+    return isNaN(d.getTime()) ? null : d;
   };
 
   // Apply date range and customer filter
   const filterRecords = (records, dateField, nameField) => {
+    const from = dateFrom ? new Date(dateFrom + "T00:00:00.000Z") : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59.999Z") : null;
+
     return records.filter((r) => {
       const d = parseDate(r[dateField]);
-      const from = dateFrom ? new Date(dateFrom) : null;
-      const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
-      if (from && d && d < from) return false;
-      if (to && d && d > to) return false;
+      // Skip records with unparseable dates only when a filter is active
+      if (!d) return !dateFrom && !dateTo;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
       if (appliedCustomer) {
         const name = (r[nameField] || "").toLowerCase();
         if (!name.includes(appliedCustomer.toLowerCase())) return false;

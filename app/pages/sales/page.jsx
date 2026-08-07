@@ -61,9 +61,9 @@ const formatDate = (value) => {
   return isNaN(d) ? "—" : d.toLocaleDateString();
 };
 
-export default function SaleList({ category = "company" }) {
+export default function SaleList() {
   const router = useRouter();
-  const label = CATEGORY_LABELS[category] || "Sale";
+  const label = "Sale";
 
   const [sales, setSales] = useState([]);
   const [stats, setStats] = useState({ bikesSold: 0, revenue: 0 });
@@ -91,7 +91,7 @@ export default function SaleList({ category = "company" }) {
     setError("");
     try {
       const currentPage = overridePage !== undefined ? overridePage : page;
-      const params = new URLSearchParams({ category, limit: PAGE_SIZE });
+      const params = new URLSearchParams({ limit: PAGE_SIZE });
       params.set("page", currentPage);
       if (month) params.set("month", month);
       if (search.trim()) params.set("search", search.trim());
@@ -108,15 +108,16 @@ export default function SaleList({ category = "company" }) {
 
       if (!salesRes.ok) throw new Error(salesData.message || "Failed to fetch");
       setSales(salesData.data || []);
-      setTotalCount(salesData.totalCount || 0);
-      setTotalPages(salesData.totalPages || 1);
+      const count = salesData.totalCount || 0;
+      setTotalCount(count);
+      setTotalPages(salesData.totalPages || Math.ceil(count / PAGE_SIZE) || 1);
       if (statsRes.ok) setStats(statsData);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [category, month, search, page]);
+  }, [month, search, page]);
 
   useEffect(() => {
     setPage(1);
@@ -128,7 +129,7 @@ export default function SaleList({ category = "company" }) {
   }, [fetchSales, search]);
 
   const openAdd = () => {
-    setForm({ ...emptyForm, category });
+    setForm({ ...emptyForm, category: "local_customer" });
     setEditId(null);
     setFormError("");
     setRegLookupStatus(null);
@@ -143,7 +144,7 @@ export default function SaleList({ category = "company" }) {
       chasisNo: s.chasisNo || "",
       engineNo: s.engineNo || "",
       linkedPurchaseId: s.linkedPurchaseId || null,
-      category: s.category || category,
+      category: s.category || "local_customer",
 
       buyerName: s.buyerName || "",
       buyerFatherName: s.buyerFatherName || "",
