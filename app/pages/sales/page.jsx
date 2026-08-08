@@ -724,21 +724,14 @@ export default function SaleList() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Total Sale Amount (Rs.) <span className="text-red-400">*</span></label>
-                    <input
-                      type="number" name="totalSaleAmount" value={form.totalSaleAmount} onChange={handleChange} required
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Advance Received (Rs.)</label>
-                    <input
-                      type="number" name="advanceReceived" value={form.advanceReceived} onChange={handleChange}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
-                    />
-                  </div>
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    {form.saleType === "cash" ? "Sold Amount (Rs.)" : "Total Sale Amount (Rs.)"} <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number" name="totalSaleAmount" value={form.totalSaleAmount} onChange={handleChange} required
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                  />
                 </div>
 
                 <div className="flex items-center gap-5 mb-4">
@@ -753,44 +746,54 @@ export default function SaleList() {
                 </div>
 
                 {form.saleType === "installment" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Months</label>
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Advance Received (Rs.)</label>
                       <input
-                        type="number" name="installmentMonths" value={form.installmentMonths} onChange={handleChange}
+                        type="number" name="advanceReceived" value={form.advanceReceived} onChange={handleChange}
+                        placeholder="Enter advance amount"
                         className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Per-Month (Rs.)</label>
-                      <input
-                        type="number" name="perMonthInstallment" value={form.perMonthInstallment} onChange={handleChange}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Months</label>
+                        <input
+                          type="number" name="installmentMonths" value={form.installmentMonths} onChange={handleChange}
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Per-Month (Rs.)</label>
+                        <input
+                          type="number" name="perMonthInstallment" value={form.perMonthInstallment} onChange={handleChange}
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
+                        <input
+                          type="date" name="installmentStartDate" value={form.installmentStartDate} onChange={handleChange}
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
-                      <input
-                        type="date" name="installmentStartDate" value={form.installmentStartDate} onChange={handleChange}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
-                      />
-                    </div>
-                  </div>
+                  </>
                 )}
-              </div>
 
-              {formError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>}
+                {formError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>}
 
-              <div className="flex items-center gap-3 pt-2">
-                <button type="submit" disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  {submitting ? "Saving..." : editId ? "Update" : "Save Sale"}
-                </button>
-                <button type="button" onClick={closeForm}
-                  className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
-                  Cancel
-                </button>
+                <div className="flex items-center gap-3 pt-2">
+                  <button type="submit" disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    {submitting ? "Saving..." : editId ? "Update" : "Save Sale"}
+                  </button>
+                  <button type="button" onClick={closeForm}
+                    className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
+                    Cancel
+                  </button>
+                </div>
               </div>
             </form>
           </div>
