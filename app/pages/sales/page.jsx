@@ -61,6 +61,28 @@ const formatDate = (value) => {
   return isNaN(d) ? "—" : d.toLocaleDateString();
 };
 
+// Helper: extract seconds from a Firestore Timestamp (handles both {_seconds,_nanoseconds} and {seconds,nanoseconds} formats)
+const extractTimestampSeconds = (ts) => {
+  if (!ts || typeof ts !== "object") return null;
+  return ts._seconds || ts.seconds || null;
+};
+
+// Helper: convert a Firestore Timestamp to an <input type="date"> value (YYYY-MM-DD)
+const toDateInputValue = (ts) => {
+  const secs = extractTimestampSeconds(ts);
+  if (!secs) return "";
+  return new Date(secs * 1000).toISOString().slice(0, 10);
+};
+
+// Helper: convert a Firestore Timestamp to an <input type="datetime-local"> value (YYYY-MM-DDTHH:MM)
+const toDateTimeInputValue = (ts) => {
+  if (!ts) return "";
+  if (typeof ts === "string") return ts;
+  const secs = extractTimestampSeconds(ts);
+  if (!secs) return "";
+  return new Date(secs * 1000).toISOString().slice(0, 16);
+};
+
 export default function SaleList() {
   const router = useRouter();
   const label = "Sale";
@@ -160,15 +182,13 @@ export default function SaleList() {
       salerAddress: s.salerAddress || "",
       salerPhotos: s.salerPhotos || [],
 
-      saleDateTime: s.saleDateTime?.seconds
-        ? new Date(s.saleDateTime.seconds * 1000).toISOString().slice(0, 16)
-        : s.saleDateTime || "",
+      saleDateTime: toDateTimeInputValue(s.saleDateTime),
       totalSaleAmount: s.totalSaleAmount || "",
       advanceReceived: s.advanceReceived || "",
       saleType: s.saleType || "cash",
       installmentMonths: s.installmentMonths || "",
       perMonthInstallment: s.perMonthInstallment || "",
-      installmentStartDate: s.installmentStartDate || "",
+      installmentStartDate: toDateInputValue(s.installmentStartDate),
     });
     setEditId(s.id);
     setFormError("");
