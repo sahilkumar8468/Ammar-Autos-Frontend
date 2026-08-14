@@ -15,7 +15,13 @@ function fmt(n) {
 
 function fmtDate(v) {
   if (!v) return "—";
-  const d = v?.seconds ? new Date(v.seconds * 1000) : new Date(v);
+  let d;
+  if (typeof v === "object") {
+    if (typeof v.toDate === "function") d = v.toDate();
+    else if (v.seconds != null) d = new Date(v.seconds * 1000);
+    else if (v._seconds != null) d = new Date(v._seconds * 1000);
+  }
+  if (!d) d = new Date(v);
   return isNaN(d) ? "—" : d.toLocaleDateString("en-PK");
 }
 
@@ -71,12 +77,13 @@ export default function ReportsDashboard() {
   };
 
   // Apply date range and customer filter
-  const filterRecords = (records, dateField, nameField) => {
+  const filterRecords = (records, dateFields, nameField) => {
     const from = dateFrom ? new Date(dateFrom + "T00:00:00.000Z") : null;
     const to = dateTo ? new Date(dateTo + "T23:59:59.999Z") : null;
+    const fields = Array.isArray(dateFields) ? dateFields : [dateFields];
 
     return records.filter((r) => {
-      const d = parseDate(r[dateField]);
+      const d = fields.map((f) => parseDate(r[f])).find(Boolean);
       // Skip records with unparseable dates only when a filter is active
       if (!d) return !dateFrom && !dateTo;
       if (from && d < from) return false;
@@ -89,9 +96,9 @@ export default function ReportsDashboard() {
     });
   };
 
-  const filteredSales = filterRecords(allSales, "saleDateTime", "buyerName");
-  const filteredPurchases = filterRecords(allPurchases, "purchaseDateTime", "customerName");
-  const filteredRegistrations = filterRecords(allRegistrations, "createdAt", "bikeCompany");
+  const filteredSales = filterRecords(allSales, ["saleDateTime", "saleDate"], "buyerName");
+  const filteredPurchases = filterRecords(allPurchases, ["purchaseDateTime", "purchaseDate"], "customerName");
+  const filteredRegistrations = filterRecords(allRegistrations, ["createdAt", "registrationDateTime", "registrationDate"], "bikeCompany");
 
   // Computed summary from filtered data
   const filteredSummary = {
@@ -337,7 +344,7 @@ export default function ReportsDashboard() {
                                 <td className="px-4 py-3 text-emerald-700 font-semibold">{fmt(s.advanceReceived)}</td>
                                 <td className="px-4 py-3 text-indigo-700 font-semibold">{fmt(s.paidInstallments)}</td>
                                 <td className="px-4 py-3 text-rose-600 font-semibold">{fmt(balance)}</td>
-                                <td className="px-4 py-3 text-slate-500">{fmtDate(s.saleDateTime)}</td>
+                                <td className="px-4 py-3 text-slate-500">{fmtDate(s.saleDateTime || s.saleDate)}</td>
                               </tr>
                             );
                           })}
@@ -390,7 +397,7 @@ export default function ReportsDashboard() {
                                   {p.approved ? "Approved" : "Pending"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-slate-500">{fmtDate(p.purchaseDateTime)}</td>
+                              <td className="px-4 py-3 text-slate-500">{fmtDate(p.purchaseDateTime || p.purchaseDate)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -439,7 +446,7 @@ export default function ReportsDashboard() {
                                   {r.paperReceived ? "Received" : "Pending"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-slate-500">{fmtDate(r.createdAt)}</td>
+                              <td className="px-4 py-3 text-slate-500">{fmtDate(r.createdAt || r.registrationDateTime || r.registrationDate)}</td>
                             </tr>
                           ))}
                         </tbody>
