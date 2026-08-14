@@ -29,20 +29,33 @@ const emptyForm = {
 
 const PAGE_SIZE = 10;
 
-const formatDate = (value) => {
+const formatDateTime = (value) => {
   if (!value) return "—";
+  let d;
   if (typeof value === "object") {
     if (typeof value.toDate === "function") {
-      const d = value.toDate();
-      return isNaN(d) ? "—" : d.toLocaleDateString();
-    }
-    const secs = value._seconds ?? value.seconds;
-    if (typeof secs === "number") {
-      return new Date(secs * 1000).toLocaleDateString();
+      d = value.toDate();
+    } else {
+      const secs = value._seconds ?? value.seconds;
+      if (typeof secs === "number") d = new Date(secs * 1000);
     }
   }
-  const d = new Date(value);
-  return isNaN(d) ? "—" : d.toLocaleDateString();
+  if (!d) d = new Date(value);
+  if (isNaN(d)) return "—";
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(d).reduce((acc, part) => {
+    if (part.type !== "literal") acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.day} ${parts.month} ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod?.toUpperCase() || ""}`.trim();
 };
 
 const toDateTimeInputValue = (value) => {
@@ -368,7 +381,7 @@ export default function LocalPurchase({ goBack }) {
                         <td className="px-4 py-3 text-emerald-700 font-semibold whitespace-nowrap">{p.actualAmount != null ? `Rs. ${Number(p.actualAmount).toLocaleString()}` : "—"}</td>
                         <td className="px-4 py-3 text-rose-600 font-semibold whitespace-nowrap">{p.amountRemaining != null ? `Rs. ${Number(p.amountRemaining).toLocaleString()}` : "—"}</td>
                         <td className="px-4 py-3 text-amber-600 whitespace-nowrap">{p.additionalExpense != null ? `Rs. ${Number(p.additionalExpense).toLocaleString()}` : "—"}</td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(p.purchaseDateTime || p.purchaseDate)}</td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.purchaseDateTime || p.purchaseDate)}</td>
                         <td className="px-4 py-3">
                           {p.approved ? (
                             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-white" title="Approved — letter received">
