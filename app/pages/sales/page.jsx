@@ -57,7 +57,17 @@ const money = (n) => (n != null ? `Rs. ${Number(n).toLocaleString()}` : "—");
 
 const formatDate = (value) => {
   if (!value) return "—";
-  const d = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+  if (typeof value === "object") {
+    if (typeof value.toDate === "function") {
+      const d = value.toDate();
+      return isNaN(d) ? "—" : d.toLocaleDateString();
+    }
+    const secs = value._seconds ?? value.seconds;
+    if (typeof secs === "number") {
+      return new Date(secs * 1000).toLocaleDateString();
+    }
+  }
+  const d = new Date(value);
   return isNaN(d) ? "—" : d.toLocaleDateString();
 };
 
@@ -182,7 +192,7 @@ export default function SaleList() {
       salerAddress: s.salerAddress || "",
       salerPhotos: s.salerPhotos || [],
 
-      saleDateTime: toDateTimeInputValue(s.saleDateTime),
+      saleDateTime: toDateTimeInputValue(s.saleDateTime || s.saleDate),
       totalSaleAmount: s.totalSaleAmount || "",
       advanceReceived: s.advanceReceived || "",
       saleType: s.saleType || "cash",
@@ -471,7 +481,7 @@ export default function SaleList() {
                           ? <span className="text-rose-600">{money(s.amountRemaining)}</span>
                           : <span className="text-emerald-600">Paid</span>}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(s.saleDateTime)}</td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(s.saleDateTime || s.saleDate)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
