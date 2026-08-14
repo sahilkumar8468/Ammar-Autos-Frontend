@@ -43,19 +43,14 @@ const formatDateTime = (value) => {
   if (!d) d = new Date(value);
   if (isNaN(d)) return "—";
 
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(d).reduce((acc, part) => {
-    if (part.type !== "literal") acc[part.type] = part.value;
-    return acc;
-  }, {});
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleString("en-GB", { month: "short" }).toUpperCase();
+  const year = d.getFullYear();
+  const minute = String(d.getMinutes()).padStart(2, "0");
+  const isPm = d.getHours() >= 12;
+  const hour12 = d.getHours() % 12 || 12;
 
-  return `${parts.day} ${parts.month} ${parts.year}, ${parts.hour}:${parts.minute} ${parts.dayPeriod?.toUpperCase() || ""}`.trim();
+  return `${day}/${month}/${year} ${hour12}:${minute}${isPm ? "PM" : "AM"}`;
 };
 
 const toDateTimeInputValue = (value) => {
