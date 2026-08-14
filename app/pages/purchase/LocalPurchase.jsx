@@ -29,6 +29,34 @@ const emptyForm = {
 
 const PAGE_SIZE = 10;
 
+const formatDate = (value) => {
+  if (!value) return "—";
+  if (typeof value === "object") {
+    if (typeof value.toDate === "function") {
+      const d = value.toDate();
+      return isNaN(d) ? "—" : d.toLocaleDateString();
+    }
+    const secs = value._seconds ?? value.seconds;
+    if (typeof secs === "number") {
+      return new Date(secs * 1000).toLocaleDateString();
+    }
+  }
+  const d = new Date(value);
+  return isNaN(d) ? "—" : d.toLocaleDateString();
+};
+
+const toDateTimeInputValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    const secs = value._seconds ?? value.seconds;
+    if (typeof secs === "number") return new Date(secs * 1000).toISOString().slice(0, 16);
+    if (typeof value.toDate === "function") return value.toDate().toISOString().slice(0, 16);
+  }
+  const d = new Date(value);
+  return isNaN(d) ? "" : d.toISOString().slice(0, 16);
+};
+
 export default function LocalPurchase({ goBack }) {
 
   const [purchases, setPurchases] = useState([]);
@@ -108,7 +136,7 @@ export default function LocalPurchase({ goBack }) {
       customerName: p.customerName || "",
       customerFatherName: p.customerFatherName || "",
       customerNo: p.customerNo || "",
-      purchaseDate: p.purchaseDate || "",
+      purchaseDate: toDateTimeInputValue(p.purchaseDateTime || p.purchaseDate),
       currentAddress: p.currentAddress || "",
       permanentAddress: p.permanentAddress || "",
       cnicNumber: p.cnicNumber || "",
@@ -340,9 +368,7 @@ export default function LocalPurchase({ goBack }) {
                         <td className="px-4 py-3 text-emerald-700 font-semibold whitespace-nowrap">{p.actualAmount != null ? `Rs. ${Number(p.actualAmount).toLocaleString()}` : "—"}</td>
                         <td className="px-4 py-3 text-rose-600 font-semibold whitespace-nowrap">{p.amountRemaining != null ? `Rs. ${Number(p.amountRemaining).toLocaleString()}` : "—"}</td>
                         <td className="px-4 py-3 text-amber-600 whitespace-nowrap">{p.additionalExpense != null ? `Rs. ${Number(p.additionalExpense).toLocaleString()}` : "—"}</td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                          {p.purchaseDateTime?.seconds ? new Date(p.purchaseDateTime.seconds * 1000).toLocaleDateString() : p.purchaseDate || "—"}
-                        </td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(p.purchaseDateTime || p.purchaseDate)}</td>
                         <td className="px-4 py-3">
                           {p.approved ? (
                             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-white" title="Approved — letter received">
