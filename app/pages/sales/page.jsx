@@ -1109,13 +1109,7 @@ export default function SaleList() {
                         </div>
                         {!isReadOnly && (
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={autoFillSchedule}
-                              className="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-bold rounded-lg border border-teal-200 hover:bg-teal-100 transition-all"
-                            >
-                              ⚡ Auto-Generate Schedule
-                            </button>
+                         
                             <button
                               type="button"
                               onClick={addInstallmentRow}

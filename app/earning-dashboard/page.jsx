@@ -392,10 +392,6 @@ export default function EarningDashboard() {
                 </div>
               )}
             </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600">
-              💡 <strong>Example Calculation:</strong> Bike bought for <span className="font-bold text-slate-900">Rs. 100,000</span> and sold for <span className="font-bold text-emerald-700">Rs. 105,000</span> yields <span className="font-bold text-teal-700">+Rs. 5,000 Net Profit</span>.
-            </div>
           </div>
         </div>
 
