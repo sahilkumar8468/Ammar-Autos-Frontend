@@ -462,21 +462,31 @@ export default function EarningDashboard() {
                         {item.registrationNo !== "—" ? item.registrationNo : item.chasisNo}
                       </td>
                       <td className="py-3.5 px-4 text-right font-semibold text-blue-700">
-                        {money(item.purchaseCost)}
+                        {item.hasMatchedPurchase ? (
+                          money(item.purchaseCost)
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">Direct / Unlinked</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right font-semibold text-slate-900">
                         {money(item.salePrice)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <span
-                          className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-full text-xs ${
-                            item.profit >= 0
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-rose-100 text-rose-800"
-                          }`}
-                        >
-                          {item.profit >= 0 ? "+" : ""}{money(item.profit)}
-                        </span>
+                        {item.hasMatchedPurchase ? (
+                          <span
+                            className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-full text-xs ${
+                              item.profit >= 0
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {item.profit >= 0 ? "+" : ""}{money(item.profit)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-semibold px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-600">
+                            Direct Sale ({money(item.salePrice)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

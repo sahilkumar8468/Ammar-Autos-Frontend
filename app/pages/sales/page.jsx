@@ -126,7 +126,7 @@ export default function SaleList() {
   const PAGE_SIZE = 10;
 
   const [showForm, setShowForm] = useState(false);
-  const [viewSale, setViewSale] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyForm);
@@ -178,12 +178,13 @@ export default function SaleList() {
   const openAdd = () => {
     setForm({ ...emptyForm, category: "local_customer" });
     setEditId(null);
+    setIsReadOnly(false);
     setFormError("");
     setRegLookupStatus(null);
     setShowForm(true);
   };
 
-  const openEdit = (s) => {
+  const populateFormWithSale = (s) => {
     const parsedInstallments = Array.isArray(s.installments)
       ? s.installments.map((inst, idx) => ({
           monthNumber: inst.monthNumber || idx + 1,
@@ -195,7 +196,7 @@ export default function SaleList() {
         }))
       : [];
 
-    setForm({
+    return {
       registrationNo: s.registrationNo || "",
       bikeCompany: s.bikeCompany || "",
       bikeModel: s.bikeModel || "",
@@ -231,8 +232,22 @@ export default function SaleList() {
       initialGraceDueDate: toDateInputValue(s.initialGraceDueDate),
       initialGraceDescription: s.initialGraceDescription || "",
       installments: parsedInstallments,
-    });
+    };
+  };
+
+  const openView = (s) => {
+    setForm(populateFormWithSale(s));
     setEditId(s.id);
+    setIsReadOnly(true);
+    setFormError("");
+    setRegLookupStatus(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (s) => {
+    setForm(populateFormWithSale(s));
+    setEditId(s.id);
+    setIsReadOnly(false);
     setFormError("");
     setRegLookupStatus(null);
     setShowForm(true);
@@ -240,20 +255,22 @@ export default function SaleList() {
 
   const closeForm = () => {
     setShowForm(false);
+    setIsReadOnly(false);
     setForm(emptyForm);
     setEditId(null);
   };
 
   const update = (field, value) => {
+    if (isReadOnly) return;
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChange = (e) => {
+    if (isReadOnly) return;
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Generate schedule rows dynamically
   const generateScheduleRows = (currentForm) => {
     const {
       installmentMonths,
@@ -304,11 +321,13 @@ export default function SaleList() {
   };
 
   const autoFillSchedule = () => {
+    if (isReadOnly) return;
     const rows = generateScheduleRows(form);
     update("installments", rows);
   };
 
   const updateInstallmentRow = (idx, field, value) => {
+    if (isReadOnly) return;
     setForm((prev) => {
       const updated = [...prev.installments];
       updated[idx] = { ...updated[idx], [field]: value };
@@ -317,6 +336,7 @@ export default function SaleList() {
   };
 
   const addInstallmentRow = () => {
+    if (isReadOnly) return;
     setForm((prev) => {
       const nextNum = prev.installments.length + 1;
       const lastDate = prev.installments[prev.installments.length - 1]?.dueDate;
@@ -343,6 +363,7 @@ export default function SaleList() {
   };
 
   const removeInstallmentRow = (idx) => {
+    if (isReadOnly) return;
     setForm((prev) => ({
       ...prev,
       installments: prev.installments.filter((_, i) => i !== idx)
@@ -350,6 +371,7 @@ export default function SaleList() {
   };
 
   const updateCurrentAddress = (addr) => {
+    if (isReadOnly) return;
     setForm((prev) => ({
       ...prev,
       buyerCurrentAddress: addr,
@@ -358,6 +380,7 @@ export default function SaleList() {
   };
 
   const toggleSameAddress = (checked) => {
+    if (isReadOnly) return;
     setForm((prev) => ({
       ...prev,
       addressSameAsPermanent: checked,
@@ -366,15 +389,17 @@ export default function SaleList() {
   };
 
   const addPhoto = (field, file) => {
-    if (!file) return;
+    if (isReadOnly || !file) return;
     setForm((prev) => ({ ...prev, [field]: [...prev[field], file] }));
   };
 
   const removePhoto = (field, idx) => {
+    if (isReadOnly) return;
     setForm((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== idx) }));
   };
 
   const handleRegistrationBlur = async () => {
+    if (isReadOnly) return;
     const value = form.registrationNo.trim();
     if (!value) {
       setRegLookupStatus(null);
@@ -439,6 +464,11 @@ export default function SaleList() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isReadOnly) {
+      closeForm();
+      return;
+    }
+
     setFormError("");
     setSubmitting(true);
 
@@ -655,7 +685,7 @@ export default function SaleList() {
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.saleDateTime || s.saleDate)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setViewSale(s)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200" title="View Details">
+                          <button onClick={() => openView(s)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200" title="View (Readonly)">
                             <Eye size={14} />
                           </button>
                           <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
@@ -712,114 +742,17 @@ export default function SaleList() {
         )}
       </main>
 
-      {/* View Sale Details Modal */}
-      {viewSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Sale Details &amp; Installments</h2>
-                <p className="text-xs text-slate-500">Record ID: {viewSale.id}</p>
-              </div>
-              <button onClick={() => setViewSale(null)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-xl">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6 text-sm">
-              {/* Summary Header */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Buyer Name</span>
-                  <p className="font-bold text-slate-900">{viewSale.buyerName}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Bike</span>
-                  <p className="font-bold text-slate-900">{viewSale.bikeCompany} {viewSale.bikeModel}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Total Amount</span>
-                  <p className="font-bold text-emerald-700">{money(viewSale.totalSaleAmount)}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Remaining</span>
-                  <p className="font-bold text-rose-600">{money(viewSale.amountRemaining)}</p>
-                </div>
-              </div>
-
-              {/* Installments Breakdown */}
-              {viewSale.saleType === "installment" && (
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-                    <Calendar size={16} /> Installment Schedule Breakdown
-                  </h3>
-
-                  {viewSale.installmentDescription && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 mb-4">
-                      <strong>Plan Notes:</strong> {viewSale.installmentDescription}
-                    </div>
-                  )}
-
-                  {Array.isArray(viewSale.installments) && viewSale.installments.length > 0 ? (
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500 uppercase text-[10px]">
-                          <tr>
-                            <th className="py-2.5 px-3">#</th>
-                            <th className="py-2.5 px-3">Due Date</th>
-                            <th className="py-2.5 px-3">Description</th>
-                            <th className="py-2.5 px-3 text-right">Amount</th>
-                            <th className="py-2.5 px-3 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {viewSale.installments.map((inst, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50">
-                              <td className="py-2.5 px-3 font-semibold text-slate-500">{inst.monthNumber || idx + 1}</td>
-                              <td className="py-2.5 px-3 font-medium text-slate-900">{formatDateTime(inst.dueDate)}</td>
-                              <td className="py-2.5 px-3 text-slate-600">{inst.description || `Installment #${idx + 1}`}</td>
-                              <td className="py-2.5 px-3 text-right font-bold text-slate-900">{money(inst.amount)}</td>
-                              <td className="py-2.5 px-3 text-center">
-                                {inst.paid ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                    <CheckCircle2 size={12} /> Paid
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                                    Pending
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400">No installment schedule found.</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-slate-200 flex justify-end bg-slate-50">
-              <button
-                onClick={() => setViewSale(null)}
-                className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Modal */}
+      {/* Unified Add / Edit / View (Readonly) Modal Form */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h2 className="text-lg font-bold text-slate-900">{editId ? "Edit" : "Add"} {label}</h2>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isReadOnly ? "View Sale Details (Readonly)" : editId ? "Edit Sale" : "Add Sale"}
+                </h2>
+                {isReadOnly && editId && <p className="text-xs text-slate-400 font-mono">Record ID: {editId}</p>}
+              </div>
               <button onClick={closeForm} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200">
                 <X size={18} />
               </button>
@@ -829,7 +762,7 @@ export default function SaleList() {
               {/* Registration lookup */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Registration No. (or type AFR) <span className="text-red-400">*</span>
+                  Registration No. (or type AFR) {!isReadOnly && <span className="text-red-400">*</span>}
                 </label>
                 <input
                   type="text"
@@ -837,14 +770,16 @@ export default function SaleList() {
                   value={form.registrationNo}
                   onChange={handleChange}
                   onBlur={handleRegistrationBlur}
-                  required
+                  disabled={isReadOnly}
+                  readOnly={isReadOnly}
+                  required={!isReadOnly}
                   placeholder="e.g. LEA-1234 or AFR"
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                 />
-                {regLookupStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">Matched an existing purchase — bike details auto-filled.</p>}
-                {regLookupStatus === "afr" && <p className="text-xs text-amber-600 mt-1.5 font-medium">Applied For Registration — treated as a new, unregistered bike.</p>}
-                {regLookupStatus === "new" && <p className="text-xs text-slate-400 mt-1.5 font-medium">No matching purchase found — enter bike details manually.</p>}
-                {regLookupStatus === "sold" && <p className="text-xs text-red-600 mt-1.5 font-medium">This bike is already recorded as sold.</p>}
+                {!isReadOnly && regLookupStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">Matched an existing purchase — bike details auto-filled.</p>}
+                {!isReadOnly && regLookupStatus === "afr" && <p className="text-xs text-amber-600 mt-1.5 font-medium">Applied For Registration — treated as a new, unregistered bike.</p>}
+                {!isReadOnly && regLookupStatus === "new" && <p className="text-xs text-slate-400 mt-1.5 font-medium">No matching purchase found — enter bike details manually.</p>}
+                {!isReadOnly && regLookupStatus === "sold" && <p className="text-xs text-red-600 mt-1.5 font-medium">This bike is already recorded as sold.</p>}
               </div>
 
               {/* Bike details */}
@@ -861,8 +796,9 @@ export default function SaleList() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{f.label}</label>
                       <input
                         type="text" name={f.name} value={form[f.name]} onChange={handleChange}
+                        disabled={isReadOnly} readOnly={isReadOnly}
                         placeholder={`Enter ${f.label.toLowerCase()}`}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                       />
                     </div>
                   ))}
@@ -880,12 +816,13 @@ export default function SaleList() {
                   ].map((f) => (
                     <div key={f.name}>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        {f.label} {f.required && <span className="text-red-400">*</span>}
+                        {f.label} {!isReadOnly && f.required && <span className="text-red-400">*</span>}
                       </label>
                       <input
-                        type="text" name={f.name} value={form[f.name]} onChange={handleChange} required={f.required}
+                        type="text" name={f.name} value={form[f.name]} onChange={handleChange} required={!isReadOnly && f.required}
+                        disabled={isReadOnly} readOnly={isReadOnly}
                         placeholder={`Enter ${f.label.toLowerCase()}`}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                       />
                     </div>
                   ))}
@@ -896,32 +833,37 @@ export default function SaleList() {
                   <textarea
                     value={form.buyerCurrentAddress}
                     onChange={(e) => updateCurrentAddress(e.target.value)}
+                    disabled={isReadOnly} readOnly={isReadOnly}
                     rows={2}
                     placeholder="Enter current address"
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white resize-none"
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700 resize-none"
                   />
                 </div>
 
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 mt-3">
-                  <input
-                    type="checkbox"
-                    checked={form.addressSameAsPermanent}
-                    onChange={(e) => toggleSameAddress(e.target.checked)}
-                    className="rounded border-slate-300"
-                  />
-                  Permanent address is the same as current address
-                </label>
+                {!isReadOnly && (
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 mt-3">
+                    <input
+                      type="checkbox"
+                      checked={form.addressSameAsPermanent}
+                      onChange={(e) => toggleSameAddress(e.target.checked)}
+                      disabled={isReadOnly}
+                      className="rounded border-slate-300"
+                    />
+                    Permanent address is the same as current address
+                  </label>
+                )}
 
-                {!form.addressSameAsPermanent && (
+                {(!form.addressSameAsPermanent || isReadOnly) && (
                   <div className="mt-3">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Permanent Address</label>
                     <textarea
                       name="buyerPermanentAddress"
                       value={form.buyerPermanentAddress}
                       onChange={handleChange}
+                      disabled={isReadOnly} readOnly={isReadOnly}
                       rows={2}
                       placeholder="Enter permanent address"
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white resize-none"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700 resize-none"
                     />
                   </div>
                 )}
@@ -929,21 +871,30 @@ export default function SaleList() {
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Buyer Photos</label>
-                    <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
-                      + Add Photo
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("buyerPhotos", e.target.files[0])} />
-                    </label>
+                    {!isReadOnly && (
+                      <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
+                        + Add Photo
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("buyerPhotos", e.target.files[0])} />
+                      </label>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {form.buyerPhotos.map((photo, idx) => {
-                      const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
-                      return (
-                      <div key={idx} className="relative w-16 h-16">
-                        <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
-                        <button type="button" onClick={() => removePhoto("buyerPhotos", idx)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
-                      </div>
-                    )})}
+                    {form.buyerPhotos.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">No buyer photos attached</span>
+                    ) : (
+                      form.buyerPhotos.map((photo, idx) => {
+                        const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
+                        return (
+                          <div key={idx} className="relative w-16 h-16">
+                            <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                            {!isReadOnly && (
+                              <button type="button" onClick={() => removePhoto("buyerPhotos", idx)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -961,8 +912,9 @@ export default function SaleList() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{f.label}</label>
                       <input
                         type="text" name={f.name} value={form[f.name]} onChange={handleChange}
+                        disabled={isReadOnly} readOnly={isReadOnly}
                         placeholder={`Enter ${f.label.toLowerCase()}`}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                       />
                     </div>
                   ))}
@@ -971,28 +923,38 @@ export default function SaleList() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Saler Address</label>
                   <textarea
                     name="salerAddress" value={form.salerAddress} onChange={handleChange} rows={2}
+                    disabled={isReadOnly} readOnly={isReadOnly}
                     placeholder="Enter saler address"
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white resize-none"
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700 resize-none"
                   />
                 </div>
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Saler Photo</label>
-                    <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
-                      + Add Photo
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("salerPhotos", e.target.files[0])} />
-                    </label>
+                    {!isReadOnly && (
+                      <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
+                        + Add Photo
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("salerPhotos", e.target.files[0])} />
+                      </label>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {form.salerPhotos.map((photo, idx) => {
-                      const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
-                      return (
-                      <div key={idx} className="relative w-16 h-16">
-                        <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
-                        <button type="button" onClick={() => removePhoto("salerPhotos", idx)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
-                      </div>
-                    )})}
+                    {form.salerPhotos.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">No seller photos attached</span>
+                    ) : (
+                      form.salerPhotos.map((photo, idx) => {
+                        const src = typeof photo === "string" ? photo : (typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(photo) : "");
+                        return (
+                          <div key={idx} className="relative w-16 h-16">
+                            <img src={src} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                            {!isReadOnly && (
+                              <button type="button" onClick={() => removePhoto("salerPhotos", idx)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs">×</button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -1005,27 +967,29 @@ export default function SaleList() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sale Date &amp; Time</label>
                   <input
                     type="datetime-local" name="saleDateTime" value={form.saleDateTime} onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                    disabled={isReadOnly} readOnly={isReadOnly}
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                   />
                 </div>
 
                 <div className="mb-4">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    {form.saleType === "cash" ? "Sold Amount (Rs.)" : "Total Sale Amount (Rs.)"} <span className="text-red-400">*</span>
+                    {form.saleType === "cash" ? "Sold Amount (Rs.)" : "Total Sale Amount (Rs.)"} {!isReadOnly && <span className="text-red-400">*</span>}
                   </label>
                   <input
-                    type="number" name="totalSaleAmount" value={form.totalSaleAmount} onChange={handleChange} required
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                    type="number" name="totalSaleAmount" value={form.totalSaleAmount} onChange={handleChange} required={!isReadOnly}
+                    disabled={isReadOnly} readOnly={isReadOnly}
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                   />
                 </div>
 
                 <div className="flex items-center gap-5 mb-4">
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <input type="radio" name="saleType" checked={form.saleType === "cash"} onChange={() => update("saleType", "cash")} />
+                    <input type="radio" name="saleType" checked={form.saleType === "cash"} onChange={() => update("saleType", "cash")} disabled={isReadOnly} />
                     Cash
                   </label>
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <input type="radio" name="saleType" checked={form.saleType === "installment"} onChange={() => update("saleType", "installment")} />
+                    <input type="radio" name="saleType" checked={form.saleType === "installment"} onChange={() => update("saleType", "installment")} disabled={isReadOnly} />
                     Installment
                   </label>
                 </div>
@@ -1038,16 +1002,16 @@ export default function SaleList() {
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Advance Received (Rs.)</label>
                         <input
                           type="number" name="advanceReceived" value={form.advanceReceived} onChange={handleChange}
+                          disabled={isReadOnly} readOnly={isReadOnly}
                           placeholder="Enter advance amount"
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-700"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Installment Description / Notes</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Remaining Balance (Rs.)</label>
                         <input
-                          type="text" name="installmentDescription" value={form.installmentDescription} onChange={handleChange}
-                          placeholder="e.g. 3-month plan with initial grace payment"
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                          type="text" value={money(totalAmountRemaining)} disabled readOnly
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-rose-600"
                         />
                       </div>
                     </div>
@@ -1057,23 +1021,26 @@ export default function SaleList() {
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Months</label>
                         <input
                           type="number" name="installmentMonths" value={form.installmentMonths} onChange={handleChange}
+                          disabled={isReadOnly} readOnly={isReadOnly}
                           placeholder="e.g. 3"
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-700"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Per-Month Amount (Rs.)</label>
                         <input
                           type="number" name="perMonthInstallment" value={form.perMonthInstallment} onChange={handleChange}
+                          disabled={isReadOnly} readOnly={isReadOnly}
                           placeholder="e.g. 25000"
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-700"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
                         <input
                           type="date" name="installmentStartDate" value={form.installmentStartDate} onChange={handleChange}
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                          disabled={isReadOnly} readOnly={isReadOnly}
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-700"
                         />
                       </div>
                     </div>
@@ -1085,6 +1052,7 @@ export default function SaleList() {
                           type="checkbox"
                           checked={form.hasInitialGracePayment}
                           onChange={(e) => update("hasInitialGracePayment", e.target.checked)}
+                          disabled={isReadOnly}
                           className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                         />
                         Add Initial / Grace Payment (e.g. 10-day custom payment before monthly installments)
@@ -1098,17 +1066,19 @@ export default function SaleList() {
                               type="number"
                               value={form.initialGraceAmount}
                               onChange={(e) => update("initialGraceAmount", e.target.value)}
+                              disabled={isReadOnly} readOnly={isReadOnly}
                               placeholder="e.g. 15000"
-                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Grace Due Date (e.g. 10 days)</label>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Grace Due Date</label>
                             <input
                               type="date"
                               value={form.initialGraceDueDate}
                               onChange={(e) => update("initialGraceDueDate", e.target.value)}
-                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                              disabled={isReadOnly} readOnly={isReadOnly}
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100"
                             />
                           </div>
                           <div>
@@ -1117,8 +1087,9 @@ export default function SaleList() {
                               type="text"
                               value={form.initialGraceDescription}
                               onChange={(e) => update("initialGraceDescription", e.target.value)}
+                              disabled={isReadOnly} readOnly={isReadOnly}
                               placeholder="Initial 10-day payment"
-                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100"
                             />
                           </div>
                         </div>
@@ -1136,22 +1107,24 @@ export default function SaleList() {
                             Set custom dates, amounts, or descriptions for every month.
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={autoFillSchedule}
-                            className="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-bold rounded-lg border border-teal-200 hover:bg-teal-100 transition-all"
-                          >
-                            ⚡ Auto-Generate Schedule
-                          </button>
-                          <button
-                            type="button"
-                            onClick={addInstallmentRow}
-                            className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-all"
-                          >
-                            + Add Row
-                          </button>
-                        </div>
+                        {!isReadOnly && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={autoFillSchedule}
+                              className="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-bold rounded-lg border border-teal-200 hover:bg-teal-100 transition-all"
+                            >
+                              ⚡ Auto-Generate Schedule
+                            </button>
+                            <button
+                              type="button"
+                              onClick={addInstallmentRow}
+                              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-all"
+                            >
+                              + Add Row
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Real-time Schedule Sum Indicator */}
@@ -1179,7 +1152,11 @@ export default function SaleList() {
                                 <th className="py-2 px-3">Due Date</th>
                                 <th className="py-2 px-3">Amount (Rs.)</th>
                                 <th className="py-2 px-3">Description / Note</th>
-                                <th className="py-2 px-3 text-center">Action</th>
+                                {isReadOnly ? (
+                                  <th className="py-2 px-3 text-center">Status</th>
+                                ) : (
+                                  <th className="py-2 px-3 text-center">Action</th>
+                                )}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -1193,7 +1170,8 @@ export default function SaleList() {
                                       type="date"
                                       value={inst.dueDate}
                                       onChange={(e) => updateInstallmentRow(idx, "dueDate", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs"
+                                      disabled={isReadOnly} readOnly={isReadOnly}
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs disabled:bg-slate-100"
                                     />
                                   </td>
                                   <td className="py-2 px-3 w-32">
@@ -1201,7 +1179,8 @@ export default function SaleList() {
                                       type="number"
                                       value={inst.amount}
                                       onChange={(e) => updateInstallmentRow(idx, "amount", e.target.value)}
-                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs font-semibold"
+                                      disabled={isReadOnly} readOnly={isReadOnly}
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs font-semibold disabled:bg-slate-100"
                                     />
                                   </td>
                                   <td className="py-2 px-3">
@@ -1209,20 +1188,31 @@ export default function SaleList() {
                                       type="text"
                                       value={inst.description}
                                       onChange={(e) => updateInstallmentRow(idx, "description", e.target.value)}
+                                      disabled={isReadOnly} readOnly={isReadOnly}
                                       placeholder="e.g. Regular installment"
-                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs disabled:bg-slate-100"
                                     />
                                   </td>
-                                  <td className="py-2 px-3 text-center w-12">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeInstallmentRow(idx)}
-                                      className="text-red-500 hover:text-red-700 p-1"
-                                      title="Delete Row"
-                                    >
-                                      ×
-                                    </button>
-                                  </td>
+                                  {isReadOnly ? (
+                                    <td className="py-2 px-3 text-center">
+                                      {inst.paid ? (
+                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Paid</span>
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>
+                                      )}
+                                    </td>
+                                  ) : (
+                                    <td className="py-2 px-3 text-center w-12">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeInstallmentRow(idx)}
+                                        className="text-red-500 hover:text-red-700 p-1"
+                                        title="Delete Row"
+                                      >
+                                        ×
+                                      </button>
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
@@ -1230,21 +1220,49 @@ export default function SaleList() {
                         </div>
                       )}
                     </div>
+
+                    {/* Placed at the VERY END of the Installments section as requested */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                        Installment Plan Description &amp; Terms (Notes)
+                      </label>
+                      <textarea
+                        name="installmentDescription"
+                        value={form.installmentDescription}
+                        onChange={handleChange}
+                        disabled={isReadOnly} readOnly={isReadOnly}
+                        rows={2}
+                        placeholder="e.g. 3-month plan with initial grace payment of Rs. 15,000..."
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-700 resize-none"
+                      />
+                    </div>
                   </div>
                 )}
 
                 {formError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>}
 
                 <div className="flex items-center gap-3 pt-2">
-                  <button type="submit" disabled={submitting}
-                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                    {submitting ? "Saving..." : editId ? "Update Sale" : "Save Sale"}
-                  </button>
-                  <button type="button" onClick={closeForm}
-                    className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
-                    Cancel
-                  </button>
+                  {isReadOnly ? (
+                    <button
+                      type="button"
+                      onClick={closeForm}
+                      className="w-full text-sm font-semibold py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all duration-200"
+                    >
+                      Close Details
+                    </button>
+                  ) : (
+                    <>
+                      <button type="submit" disabled={submitting}
+                        className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
+                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                        {submitting ? "Saving..." : editId ? "Update Sale" : "Save Sale"}
+                      </button>
+                      <button type="button" onClick={closeForm}
+                        className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
+                        Cancel
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </form>
