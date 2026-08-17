@@ -14,19 +14,17 @@ import {
   Settings,
   LogOut,
   FileText,
+  TrendingUp,
 } from "lucide-react";
 
 const modules = [
   { icon: <ShoppingCart size={28} />, label: "Purchase", color: "bg-blue-50 text-blue-600 hover:bg-blue-100", route: "/purchase-dashboard" },
   { icon: <DollarSign size={28} />, label: "Sales", color: "bg-emerald-50 text-emerald-600 hover:bg-emerald-100", route: "/pages/sales" },
+  { icon: <TrendingUp size={28} />, label: "Earning & Profit", color: "bg-teal-50 text-teal-600 hover:bg-teal-100", route: "/earning-dashboard" },
   { icon: <Package size={28} />, label: "Inventory", color: "bg-amber-50 text-amber-600 hover:bg-amber-100", route: "/inventory-dashboard" },
   { icon: <FileText size={28} />, label: "Registration", color: "bg-purple-50 text-purple-600 hover:bg-purple-100", route: "/registration-dashboard" },
   { icon: <User size={28} />, label: "Customer", color: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100", route: "/customer-dashboard" },
-  // { icon: <Truck size={28} />, label: "Supplier", color: "bg-orange-50 text-orange-600 hover:bg-orange-100", route: null },
-  // { icon: <CreditCard size={28} />, label: "Payments", color: "bg-purple-50 text-purple-600 hover:bg-purple-100", route: "/customer-dashboard" },
   { icon: <BarChart2 size={28} />, label: "Reports", color: "bg-cyan-50 text-cyan-600 hover:bg-cyan-100", route: "/reports-dashboard" },
-  // { icon: <Banknote size={28} />, label: "Expenses", color: "bg-rose-50 text-rose-600 hover:bg-rose-100", route: null },
-  // { icon: <Settings size={28} />, label: "Settings", color: "bg-slate-100 text-slate-600 hover:bg-slate-200", route: null },
   { icon: <LogOut size={28} />, label: "Logout", color: "bg-red-50 text-red-600 hover:bg-red-100", route: "/" },
 ];
 

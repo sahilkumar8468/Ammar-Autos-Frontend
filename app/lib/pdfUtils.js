@@ -174,13 +174,46 @@ export function downloadSalePDF(s) {
       row("Total Sale Amount", fmt(s.totalSaleAmount), true) +
       row("Advance Received", fmt(s.advanceReceived)) +
       row("Installments Paid", fmt(s.paidInstallments)) +
-      row("Balance Remaining", fmt(remaining)) +
+      row("Balance Remaining", fmt(s.amountRemaining ?? (Number(s.totalSaleAmount || 0) - Number(s.advanceReceived || 0)))) +
       (s.saleType === "installment" ? (
         row("Installment Months", s.installmentMonths || "—") +
         row("Per Month", fmt(s.perMonthInstallment)) +
-        row("Start Date", fmtDate(s.installmentStartDate))
+        row("Start Date", fmtDate(s.installmentStartDate)) +
+        (s.installmentDescription ? row("Installment Plan Notes", s.installmentDescription) : "")
       ) : "")
     )}
+
+    ${s.saleType === "installment" && Array.isArray(s.installments) && s.installments.length > 0 ? `
+      <div style="margin-top:20px;">
+        <div style="background:#0f172a;color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">
+          📅 Custom Installment Schedule
+        </div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;font-size:11px;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;color:#64748b;">
+              <th style="padding:8px 12px;">#</th>
+              <th style="padding:8px 12px;">Due Date</th>
+              <th style="padding:8px 12px;">Description</th>
+              <th style="padding:8px 12px;text-align:right;">Amount</th>
+              <th style="padding:8px 12px;text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${s.installments.map((inst, idx) => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:8px 12px;font-weight:600;color:#64748b;">${inst.monthNumber || idx + 1}</td>
+                <td style="padding:8px 12px;color:#1e293b;">${fmtDate(inst.dueDate)}</td>
+                <td style="padding:8px 12px;color:#475569;">${inst.description || `Installment #${idx + 1}`}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:#0f172a;">${fmt(inst.amount)}</td>
+                <td style="padding:8px 12px;text-align:center;font-weight:700;color:${inst.paid ? "#059669" : "#d97706"}; font-size:10px;">
+                  ${inst.paid ? "PAID" : "PENDING"}
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : ""}
   `;
 
   printWindow(`${SHOWROOM} — Sale Receipt`, body);

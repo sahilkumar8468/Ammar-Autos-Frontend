@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil,
-  Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight
+  Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight,
+  Eye, Calendar, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 
@@ -46,6 +47,12 @@ const emptyForm = {
   installmentMonths: "",
   perMonthInstallment: "",
   installmentStartDate: "",
+  installmentDescription: "",
+  hasInitialGracePayment: false,
+  initialGraceAmount: "",
+  initialGraceDueDate: "",
+  initialGraceDescription: "",
+  installments: [],
 };
 
 const currentMonth = () => {
@@ -79,20 +86,19 @@ const formatDateTime = (value) => {
   return `${day}/${month}/${year} ${hour12}:${minute}${isPm ? "PM" : "AM"}`;
 };
 
-// Helper: extract seconds from a Firestore Timestamp (handles both {_seconds,_nanoseconds} and {seconds,nanoseconds} formats)
 const extractTimestampSeconds = (ts) => {
   if (!ts || typeof ts !== "object") return null;
   return ts._seconds || ts.seconds || null;
 };
 
-// Helper: convert a Firestore Timestamp to an <input type="date"> value (YYYY-MM-DD)
 const toDateInputValue = (ts) => {
+  if (!ts) return "";
+  if (typeof ts === "string") return ts.slice(0, 10);
   const secs = extractTimestampSeconds(ts);
   if (!secs) return "";
   return new Date(secs * 1000).toISOString().slice(0, 10);
 };
 
-// Helper: convert a Firestore Timestamp to an <input type="datetime-local"> value (YYYY-MM-DDTHH:MM)
 const toDateTimeInputValue = (ts) => {
   if (!ts) return "";
   if (typeof ts === "string") return ts;
@@ -111,7 +117,7 @@ export default function SaleList() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [month, setMonth] = useState(""); // blank = show all, pick a month to filter
+  const [month, setMonth] = useState("");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -120,11 +126,12 @@ export default function SaleList() {
   const PAGE_SIZE = 10;
 
   const [showForm, setShowForm] = useState(false);
+  const [viewSale, setViewSale] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
-  const [regLookupStatus, setRegLookupStatus] = useState(null); // "found" | "afr" | "new" | "sold"
+  const [regLookupStatus, setRegLookupStatus] = useState(null);
 
   const fetchSales = useCallback(async (overridePage) => {
     setLoading(true);
@@ -177,6 +184,17 @@ export default function SaleList() {
   };
 
   const openEdit = (s) => {
+    const parsedInstallments = Array.isArray(s.installments)
+      ? s.installments.map((inst, idx) => ({
+          monthNumber: inst.monthNumber || idx + 1,
+          dueDate: toDateInputValue(inst.dueDate),
+          amount: inst.amount || "",
+          description: inst.description || `Installment #${idx + 1}`,
+          paid: !!inst.paid,
+          paidDate: inst.paidDate ? toDateInputValue(inst.paidDate) : null,
+        }))
+      : [];
+
     setForm({
       registrationNo: s.registrationNo || "",
       bikeCompany: s.bikeCompany || "",
@@ -207,6 +225,12 @@ export default function SaleList() {
       installmentMonths: s.installmentMonths || "",
       perMonthInstallment: s.perMonthInstallment || "",
       installmentStartDate: toDateInputValue(s.installmentStartDate),
+      installmentDescription: s.installmentDescription || "",
+      hasInitialGracePayment: s.hasInitialGracePayment || false,
+      initialGraceAmount: s.initialGraceAmount || "",
+      initialGraceDueDate: toDateInputValue(s.initialGraceDueDate),
+      initialGraceDescription: s.initialGraceDescription || "",
+      installments: parsedInstallments,
     });
     setEditId(s.id);
     setFormError("");
@@ -216,14 +240,122 @@ export default function SaleList() {
 
   const closeForm = () => {
     setShowForm(false);
-    setFormError("");
     setForm(emptyForm);
     setEditId(null);
-    setRegLookupStatus(null);
   };
 
-  const update = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
-  const handleChange = (e) => update(e.target.name, e.target.value);
+  const update = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Generate schedule rows dynamically
+  const generateScheduleRows = (currentForm) => {
+    const {
+      installmentMonths,
+      installmentStartDate,
+      perMonthInstallment,
+      hasInitialGracePayment,
+      initialGraceAmount,
+      initialGraceDueDate,
+      initialGraceDescription
+    } = currentForm;
+
+    const rows = [];
+    let monthOffset = 0;
+
+    if (hasInitialGracePayment && parseFloat(initialGraceAmount) > 0) {
+      let gDate = initialGraceDueDate;
+      if (!gDate) {
+        const d = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+        gDate = d.toISOString().slice(0, 10);
+      }
+      rows.push({
+        monthNumber: 1,
+        dueDate: gDate,
+        amount: parseFloat(initialGraceAmount || 0),
+        description: initialGraceDescription || "Initial / Grace Payment (10 Days)",
+        paid: false
+      });
+      monthOffset = 1;
+    }
+
+    const months = parseInt(installmentMonths || 0, 10);
+    const perMonth = parseFloat(perMonthInstallment || 0);
+    const baseDate = installmentStartDate ? new Date(installmentStartDate) : new Date();
+
+    for (let i = 1; i <= months; i++) {
+      const d = new Date(baseDate);
+      d.setMonth(d.getMonth() + (i - 1));
+      rows.push({
+        monthNumber: i + monthOffset,
+        dueDate: isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10),
+        amount: perMonth || 0,
+        description: `Installment #${i}`,
+        paid: false
+      });
+    }
+
+    return rows;
+  };
+
+  const autoFillSchedule = () => {
+    const rows = generateScheduleRows(form);
+    update("installments", rows);
+  };
+
+  const updateInstallmentRow = (idx, field, value) => {
+    setForm((prev) => {
+      const updated = [...prev.installments];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return { ...prev, installments: updated };
+    });
+  };
+
+  const addInstallmentRow = () => {
+    setForm((prev) => {
+      const nextNum = prev.installments.length + 1;
+      const lastDate = prev.installments[prev.installments.length - 1]?.dueDate;
+      let nextDateStr = "";
+      if (lastDate) {
+        const d = new Date(lastDate);
+        d.setMonth(d.getMonth() + 1);
+        if (!isNaN(d.getTime())) nextDateStr = d.toISOString().slice(0, 10);
+      }
+      return {
+        ...prev,
+        installments: [
+          ...prev.installments,
+          {
+            monthNumber: nextNum,
+            dueDate: nextDateStr,
+            amount: parseFloat(prev.perMonthInstallment || 0),
+            description: `Custom Installment #${nextNum}`,
+            paid: false
+          }
+        ]
+      };
+    });
+  };
+
+  const removeInstallmentRow = (idx) => {
+    setForm((prev) => ({
+      ...prev,
+      installments: prev.installments.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const updateCurrentAddress = (addr) => {
+    setForm((prev) => ({
+      ...prev,
+      buyerCurrentAddress: addr,
+      buyerPermanentAddress: prev.addressSameAsPermanent ? addr : prev.buyerPermanentAddress,
+    }));
+  };
 
   const toggleSameAddress = (checked) => {
     setForm((prev) => ({
@@ -232,69 +364,85 @@ export default function SaleList() {
       buyerPermanentAddress: checked ? prev.buyerCurrentAddress : prev.buyerPermanentAddress,
     }));
   };
-  const updateCurrentAddress = (value) => {
-    setForm((prev) => ({
-      ...prev,
-      buyerCurrentAddress: value,
-      buyerPermanentAddress: prev.addressSameAsPermanent ? value : prev.buyerPermanentAddress,
-    }));
+
+  const addPhoto = (field, file) => {
+    if (!file) return;
+    setForm((prev) => ({ ...prev, [field]: [...prev[field], file] }));
+  };
+
+  const removePhoto = (field, idx) => {
+    setForm((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== idx) }));
   };
 
   const handleRegistrationBlur = async () => {
     const value = form.registrationNo.trim();
-    if (!value) return;
-
-    if (value.toUpperCase() === "AFR") {
-      setRegLookupStatus("afr");
-      update("linkedPurchaseId", null);
-      update("category", "local_customer");
+    if (!value) {
+      setRegLookupStatus(null);
       return;
     }
 
+    setRegLookupStatus(null);
     try {
       const res = await fetch(`${URL}/sale/lookup-bike/${encodeURIComponent(value)}`);
       const data = await res.json();
+      if (!res.ok || !data.success) return;
 
-      if (!data.found) {
-        setRegLookupStatus("new");
-        update("linkedPurchaseId", null);
-        update("category", "local_customer");
+      if (data.isAfr) {
+        setRegLookupStatus("afr");
+        setForm((prev) => ({ ...prev, linkedPurchaseId: null }));
         return;
       }
+      if (!data.found) {
+        const chasisRes = await fetch(`${URL}/sale/lookup-bike-chasis/${encodeURIComponent(value)}`);
+        const chasisData = await chasisRes.json();
+        if (chasisRes.ok && chasisData.success && chasisData.found) {
+          if (chasisData.alreadySold) {
+            setRegLookupStatus("sold");
+            return;
+          }
+          setRegLookupStatus("found");
+          setForm((prev) => ({
+            ...prev,
+            bikeCompany: chasisData.data.bikeCompany || prev.bikeCompany,
+            bikeModel: chasisData.data.bikeModel || prev.bikeModel,
+            chasisNo: chasisData.data.chasisNo || prev.chasisNo,
+            engineNo: chasisData.data.engineNo || prev.engineNo,
+            linkedPurchaseId: chasisData.purchaseId,
+            category: chasisData.purchaseCategory || prev.category,
+          }));
+          return;
+        }
+        setRegLookupStatus("new");
+        setForm((prev) => ({ ...prev, linkedPurchaseId: null }));
+        return;
+      }
+
       if (data.alreadySold) {
         setRegLookupStatus("sold");
         return;
       }
 
+      setRegLookupStatus("found");
       setForm((prev) => ({
         ...prev,
-        bikeCompany: data.data.bikeCompany,
-        bikeModel: data.data.bikeModel,
-        chasisNo: data.data.chasisNo,
-        engineNo: data.data.engineNo,
-        registrationNo: data.data.registrationNo,
+        bikeCompany: data.data.bikeCompany || prev.bikeCompany,
+        bikeModel: data.data.bikeModel || prev.bikeModel,
+        chasisNo: data.data.chasisNo || prev.chasisNo,
+        engineNo: data.data.engineNo || prev.engineNo,
         linkedPurchaseId: data.purchaseId,
-        category: data.purchaseCategory || "local_customer",
+        category: data.purchaseCategory || prev.category,
       }));
-      setRegLookupStatus("found");
-    } catch (e) {
-      console.error("Registration lookup failed:", e);
+    } catch {
+      // ignore lookup network errors silently
     }
   };
 
-  const addPhoto = (field, file) => {
-    if (!file) return;
-    update(field, [...form[field], file]);
-  };
-  const removePhoto = (field, index) =>
-    update(field, form[field].filter((_, i) => i !== index));
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setFormError("");
+    setSubmitting(true);
+
     try {
-      // 1. Upload new photos first
       const uploadPendingPhotos = async (photos) => {
         const result = [];
         for (const photo of photos) {
@@ -306,7 +454,7 @@ export default function SaleList() {
             if (!res.ok || !data.success) throw new Error(data.message || "Photo upload failed");
             result.push(data.url);
           } else {
-            result.push(photo); // existing url
+            result.push(photo);
           }
         }
         return result;
@@ -345,56 +493,64 @@ export default function SaleList() {
     try {
       const res = await fetch(`${URL}/sale/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setPage(1);
-      fetchSales(1);
+      if (!res.ok) throw new Error(data.message || "Failed to delete");
+      fetchSales();
     } catch (e) {
       alert(e.message);
     }
   };
 
+  const totalAmountRemaining = Math.max(
+    0,
+    parseFloat(form.totalSaleAmount || 0) - parseFloat(form.advanceReceived || 0)
+  );
+
+  const installmentScheduleSum = (form.installments || []).reduce(
+    (sum, item) => sum + parseFloat(item.amount || 0),
+    0
+  );
+
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
       {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/80">
+      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/80">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md shadow-slate-900/10">
-              <span role="img" aria-label="motorbike" className="text-xl block leading-none">🏍️</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Ammar Autos</h1>
-              <p className="text-xs text-slate-500 font-medium -mt-0.5">{label}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchSales}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors duration-200 p-2 rounded-xl hover:bg-slate-100"
-            >
-              <RefreshCw size={16} />
-            </button>
             <button
               onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors duration-200"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200"
+              title="Back to Dashboard"
             >
-              <ArrowLeft size={16} />
-              Back
+              <ArrowLeft size={20} />
             </button>
+            <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md shadow-emerald-600/10">
+              <span role="img" aria-label="sale" className="text-xl block leading-none">💰</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Sales Dashboard</h1>
+              <p className="text-xs text-slate-500 font-medium -mt-0.5">Manage Bike Sales & Custom Installment Schedules</p>
+            </div>
           </div>
+          <button
+            onClick={() => router.push("/earning-dashboard")}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl hover:bg-teal-700 transition-all shadow-md shadow-teal-600/20"
+          >
+            <TrendingUp size={16} />
+            View Earning & Profit
+          </button>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        {/* Section Heading + Add Button */}
-        <div className="mb-6 flex items-center justify-between">
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">{label} Records</h2>
-            <div className="h-1 w-12 bg-slate-900 mt-2 rounded-full" />
+            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Sales Overview</h2>
+            <div className="h-1 w-12 bg-emerald-600 mt-1.5 rounded-full" />
           </div>
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-all duration-200 shadow-md shadow-slate-900/10"
           >
             <Plus size={16} />
             Add Sale
@@ -482,7 +638,14 @@ export default function SaleList() {
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{[s.bikeCompany, s.bikeModel].filter(Boolean).join(" ") || "—"}</td>
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerName || "—"}</td>
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerCnic || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap capitalize">{s.saleType || "—"}</td>
+                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap capitalize">
+                        {s.saleType || "—"}
+                        {s.saleType === "installment" && Array.isArray(s.installments) && (
+                          <span className="ml-1 text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-full font-bold">
+                            {s.installments.length} mo
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-emerald-700 font-semibold whitespace-nowrap">{money(s.totalSaleAmount)}</td>
                       <td className="px-4 py-3 font-semibold whitespace-nowrap">
                         {s.amountRemaining > 0
@@ -492,6 +655,9 @@ export default function SaleList() {
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.saleDateTime || s.saleDate)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => setViewSale(s)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200" title="View Details">
+                            <Eye size={14} />
+                          </button>
                           <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
                             <Pencil size={14} />
                           </button>
@@ -539,7 +705,6 @@ export default function SaleList() {
           </div>
         )}
 
-        {/* Record count summary */}
         {totalCount > 0 && (
           <p className="text-center text-xs text-slate-400 mt-2">
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} records
@@ -547,11 +712,113 @@ export default function SaleList() {
         )}
       </main>
 
+      {/* View Sale Details Modal */}
+      {viewSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Sale Details &amp; Installments</h2>
+                <p className="text-xs text-slate-500">Record ID: {viewSale.id}</p>
+              </div>
+              <button onClick={() => setViewSale(null)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-xl">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 text-sm">
+              {/* Summary Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Buyer Name</span>
+                  <p className="font-bold text-slate-900">{viewSale.buyerName}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Bike</span>
+                  <p className="font-bold text-slate-900">{viewSale.bikeCompany} {viewSale.bikeModel}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Total Amount</span>
+                  <p className="font-bold text-emerald-700">{money(viewSale.totalSaleAmount)}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Remaining</span>
+                  <p className="font-bold text-rose-600">{money(viewSale.amountRemaining)}</p>
+                </div>
+              </div>
+
+              {/* Installments Breakdown */}
+              {viewSale.saleType === "installment" && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
+                    <Calendar size={16} /> Installment Schedule Breakdown
+                  </h3>
+
+                  {viewSale.installmentDescription && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 mb-4">
+                      <strong>Plan Notes:</strong> {viewSale.installmentDescription}
+                    </div>
+                  )}
+
+                  {Array.isArray(viewSale.installments) && viewSale.installments.length > 0 ? (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500 uppercase text-[10px]">
+                          <tr>
+                            <th className="py-2.5 px-3">#</th>
+                            <th className="py-2.5 px-3">Due Date</th>
+                            <th className="py-2.5 px-3">Description</th>
+                            <th className="py-2.5 px-3 text-right">Amount</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {viewSale.installments.map((inst, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="py-2.5 px-3 font-semibold text-slate-500">{inst.monthNumber || idx + 1}</td>
+                              <td className="py-2.5 px-3 font-medium text-slate-900">{formatDateTime(inst.dueDate)}</td>
+                              <td className="py-2.5 px-3 text-slate-600">{inst.description || `Installment #${idx + 1}`}</td>
+                              <td className="py-2.5 px-3 text-right font-bold text-slate-900">{money(inst.amount)}</td>
+                              <td className="py-2.5 px-3 text-center">
+                                {inst.paid ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                    <CheckCircle2 size={12} /> Paid
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                    Pending
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">No installment schedule found.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-200 flex justify-end bg-slate-50">
+              <button
+                onClick={() => setViewSale(null)}
+                className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 sticky top-0 bg-white z-10">
               <h2 className="text-lg font-bold text-slate-900">{editId ? "Edit" : "Add"} {label}</h2>
               <button onClick={closeForm} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200">
                 <X size={18} />
@@ -602,7 +869,7 @@ export default function SaleList() {
                 </div>
               </div>
 
-              {/* Buyer */}
+              {/* Buyer Details */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Buyer Details</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -681,7 +948,7 @@ export default function SaleList() {
                 </div>
               </div>
 
-              {/* Saler */}
+              {/* Saler Details */}
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Saler Details</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -763,40 +1030,207 @@ export default function SaleList() {
                   </label>
                 </div>
 
+                {/* Enhanced Installment Controls */}
                 {form.saleType === "installment" && (
-                  <>
-                    <div className="mb-4">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Advance Received (Rs.)</label>
-                      <input
-                        type="number" name="advanceReceived" value={form.advanceReceived} onChange={handleChange}
-                        placeholder="Enter advance amount"
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
-                      />
+                  <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Advance Received (Rs.)</label>
+                        <input
+                          type="number" name="advanceReceived" value={form.advanceReceived} onChange={handleChange}
+                          placeholder="Enter advance amount"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Installment Description / Notes</label>
+                        <input
+                          type="text" name="installmentDescription" value={form.installmentDescription} onChange={handleChange}
+                          placeholder="e.g. 3-month plan with initial grace payment"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                        />
+                      </div>
                     </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Months</label>
                         <input
                           type="number" name="installmentMonths" value={form.installmentMonths} onChange={handleChange}
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                          placeholder="e.g. 3"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Per-Month (Rs.)</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Per-Month Amount (Rs.)</label>
                         <input
                           type="number" name="perMonthInstallment" value={form.perMonthInstallment} onChange={handleChange}
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                          placeholder="e.g. 25000"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
                         <input
                           type="date" name="installmentStartDate" value={form.installmentStartDate} onChange={handleChange}
-                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
                         />
                       </div>
                     </div>
-                  </>
+
+                    {/* Conditional Initial / Grace Payment Checkbox */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-3">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.hasInitialGracePayment}
+                          onChange={(e) => update("hasInitialGracePayment", e.target.checked)}
+                          className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                        />
+                        Add Initial / Grace Payment (e.g. 10-day custom payment before monthly installments)
+                      </label>
+
+                      {form.hasInitialGracePayment && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Grace Amount (Rs.)</label>
+                            <input
+                              type="number"
+                              value={form.initialGraceAmount}
+                              onChange={(e) => update("initialGraceAmount", e.target.value)}
+                              placeholder="e.g. 15000"
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Grace Due Date (e.g. 10 days)</label>
+                            <input
+                              type="date"
+                              value={form.initialGraceDueDate}
+                              onChange={(e) => update("initialGraceDueDate", e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Grace Description</label>
+                            <input
+                              type="text"
+                              value={form.initialGraceDescription}
+                              onChange={(e) => update("initialGraceDescription", e.target.value)}
+                              placeholder="Initial 10-day payment"
+                              className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Schedule Auto-Populate & Custom Row Matrix */}
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Custom Monthly Schedule ({form.installments.length} Installments)
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Set custom dates, amounts, or descriptions for every month.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={autoFillSchedule}
+                            className="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-bold rounded-lg border border-teal-200 hover:bg-teal-100 transition-all"
+                          >
+                            ⚡ Auto-Generate Schedule
+                          </button>
+                          <button
+                            type="button"
+                            onClick={addInstallmentRow}
+                            className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-all"
+                          >
+                            + Add Row
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Real-time Schedule Sum Indicator */}
+                      <div className="p-2.5 rounded-xl text-xs mb-3 flex items-center justify-between bg-white border border-slate-200">
+                        <span className="font-semibold text-slate-600">
+                          Scheduled Total: <strong className="text-slate-900">{money(installmentScheduleSum)}</strong> / Remaining Balance: <strong className="text-rose-600">{money(totalAmountRemaining)}</strong>
+                        </span>
+                        {Math.abs(installmentScheduleSum - totalAmountRemaining) < 1 ? (
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            ✓ Sum Matches Balance
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            ⚠️ Difference: {money(totalAmountRemaining - installmentScheduleSum)}
+                          </span>
+                        )}
+                      </div>
+
+                      {form.installments.length > 0 && (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto bg-white">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-100 text-slate-500 font-bold uppercase text-[10px]">
+                              <tr>
+                                <th className="py-2 px-3">#</th>
+                                <th className="py-2 px-3">Due Date</th>
+                                <th className="py-2 px-3">Amount (Rs.)</th>
+                                <th className="py-2 px-3">Description / Note</th>
+                                <th className="py-2 px-3 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {form.installments.map((inst, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50">
+                                  <td className="py-2 px-3 font-bold text-slate-500 w-10">
+                                    {inst.monthNumber || idx + 1}
+                                  </td>
+                                  <td className="py-2 px-3 w-36">
+                                    <input
+                                      type="date"
+                                      value={inst.dueDate}
+                                      onChange={(e) => updateInstallmentRow(idx, "dueDate", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3 w-32">
+                                    <input
+                                      type="number"
+                                      value={inst.amount}
+                                      onChange={(e) => updateInstallmentRow(idx, "amount", e.target.value)}
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs font-semibold"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <input
+                                      type="text"
+                                      value={inst.description}
+                                      onChange={(e) => updateInstallmentRow(idx, "description", e.target.value)}
+                                      placeholder="e.g. Regular installment"
+                                      className="w-full px-2 py-1 border border-slate-200 rounded text-xs"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3 text-center w-12">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeInstallmentRow(idx)}
+                                      className="text-red-500 hover:text-red-700 p-1"
+                                      title="Delete Row"
+                                    >
+                                      ×
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {formError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>}
@@ -805,7 +1239,7 @@ export default function SaleList() {
                   <button type="submit" disabled={submitting}
                     className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                    {submitting ? "Saving..." : editId ? "Update" : "Save Sale"}
+                    {submitting ? "Saving..." : editId ? "Update Sale" : "Save Sale"}
                   </button>
                   <button type="button" onClick={closeForm}
                     className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
