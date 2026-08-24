@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil,
   Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight,
-  Eye, Calendar, CheckCircle2, AlertCircle
+  Eye, Calendar, CheckCircle2, AlertCircle, RotateCcw
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 
@@ -132,6 +132,109 @@ export default function SaleList() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [regLookupStatus, setRegLookupStatus] = useState(null);
+
+  // Return / Buyback Modal state
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnSale, setReturnSale] = useState(null);
+  const [returnForm, setReturnForm] = useState({
+    category: "local_customer",
+    customerName: "",
+    customerFatherName: "",
+    customerNo: "",
+    cnicNumber: "",
+    currentAddress: "",
+    permanentAddress: "",
+    purchaseDate: "",
+    actualAmount: "",
+    amountRemaining: "",
+    additionalExpense: "",
+    bikeCompany: "",
+    bikeModel: "",
+    chasisNo: "",
+    engineNo: "",
+    registrationNo: "",
+  });
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnError, setReturnError] = useState("");
+  const [returnSuccess, setReturnSuccess] = useState("");
+
+  const openReturnModal = (s) => {
+    setReturnSale(s);
+    setReturnForm({
+      category: s.category || "local_customer",
+      customerName: s.buyerName || "",
+      customerFatherName: s.buyerFatherName || "",
+      customerNo: s.buyerNumber || s.salerNumber || "",
+      cnicNumber: s.buyerCnic || "",
+      currentAddress: s.buyerCurrentAddress || "",
+      permanentAddress: s.buyerPermanentAddress || "",
+      purchaseDate: new Date().toISOString().slice(0, 10),
+      actualAmount: "",
+      amountRemaining: "",
+      additionalExpense: "",
+      bikeCompany: s.bikeCompany || "",
+      bikeModel: s.bikeModel || "",
+      chasisNo: s.chasisNo || "",
+      engineNo: s.engineNo || "",
+      registrationNo: s.registrationNo || "",
+    });
+    setReturnError("");
+    setReturnSuccess("");
+    setShowReturnModal(true);
+  };
+
+  const closeReturnModal = () => {
+    setShowReturnModal(false);
+    setReturnSale(null);
+    setReturnError("");
+    setReturnSuccess("");
+  };
+
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    setReturnSubmitting(true);
+    setReturnError("");
+    setReturnSuccess("");
+    try {
+      const payload = {
+        category: returnForm.category || "local_customer",
+        customerName: returnForm.customerName,
+        customerFatherName: returnForm.customerFatherName || "",
+        customerNo: returnForm.customerNo || "",
+        cnicNumber: returnForm.cnicNumber || "",
+        currentAddress: returnForm.currentAddress || "",
+        permanentAddress: returnForm.permanentAddress || "",
+        purchaseDate: returnForm.purchaseDate,
+        actualAmount: parseFloat(returnForm.actualAmount || 0),
+        amountRemaining: parseFloat(returnForm.amountRemaining || 0),
+        additionalExpense: parseFloat(returnForm.additionalExpense || 0),
+        bikeCompany: returnForm.bikeCompany || "",
+        bikeModel: returnForm.bikeModel || "",
+        chasisNo: returnForm.chasisNo || "",
+        engineNo: returnForm.engineNo || "",
+        registrationNo: returnForm.registrationNo || "",
+        isReturn: true,
+        previousSaleId: returnSale?.id || null,
+      };
+
+      const res = await fetch(`${URL}/purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to record return purchase");
+      setReturnSuccess("Bike returned & re-entered into inventory successfully!");
+      setTimeout(() => {
+        closeReturnModal();
+        fetchSales();
+      }, 1200);
+    } catch (err) {
+      setReturnError(err.message);
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
 
   const fetchSales = useCallback(async (overridePage) => {
     setLoading(true);
@@ -687,6 +790,9 @@ export default function SaleList() {
                         <div className="flex items-center gap-1">
                           <button onClick={() => openView(s)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200" title="View (Readonly)">
                             <Eye size={14} />
+                          </button>
+                          <button onClick={() => openReturnModal(s)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200" title="Return / Buy Back Bike">
+                            <RotateCcw size={14} />
                           </button>
                           <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
                             <Pencil size={14} />
@@ -1258,6 +1364,158 @@ export default function SaleList() {
                     </>
                   )}
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Return / Buy Back Modal */}
+      {showReturnModal && returnSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <RotateCcw size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Return / Buy Back Bike</h2>
+                  <p className="text-xs text-slate-400">Re-enter sold bike into inventory as a new purchase</p>
+                </div>
+              </div>
+              <button onClick={closeReturnModal} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleReturnSubmit} className="px-6 py-5 space-y-5">
+              {/* Bike & Previous Buyer Overview */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Bike Details</p>
+                  <p className="text-sm font-bold text-slate-800">{[returnSale.bikeCompany, returnSale.bikeModel].filter(Boolean).join(" ") || "—"}</p>
+                  <p className="text-xs text-slate-600 font-mono">Reg: <span className="font-semibold">{returnSale.registrationNo || "—"}</span></p>
+                  <p className="text-xs text-slate-600 font-mono">Chasis: <span className="font-semibold">{returnSale.chasisNo || "—"}</span></p>
+                  <p className="text-xs text-slate-600 font-mono">Engine: <span className="font-semibold">{returnSale.engineNo || "—"}</span></p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Seller (Original Buyer)</p>
+                  <p className="text-sm font-bold text-slate-800">{returnSale.buyerName || "—"}</p>
+                  <p className="text-xs text-slate-600">Father: <span className="font-semibold">{returnSale.buyerFatherName || "—"}</span></p>
+                  <p className="text-xs text-slate-600 font-mono">CNIC: <span className="font-semibold">{returnSale.buyerCnic || "—"}</span></p>
+                  <p className="text-xs text-slate-600">Address: <span className="font-semibold">{returnSale.buyerCurrentAddress || "—"}</span></p>
+                </div>
+              </div>
+
+              {/* Form Inputs */}
+              <div className="space-y-4 pt-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Return Purchase Terms</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Purchase Category <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={returnForm.category}
+                      onChange={(e) => setReturnForm({ ...returnForm, category: e.target.value })}
+                      required
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    >
+                      <option value="local_customer">Local Customer Purchase</option>
+                      <option value="company">Company Purchase</option>
+                      <option value="dealer">Dealer Purchase</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Return Date <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={returnForm.purchaseDate}
+                      onChange={(e) => setReturnForm({ ...returnForm, purchaseDate: e.target.value })}
+                      required
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Buyback / Return Price (Rs.) <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={returnForm.actualAmount}
+                      onChange={(e) => setReturnForm({ ...returnForm, actualAmount: e.target.value })}
+                      placeholder="e.g. 85000"
+                      required
+                      min="0"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Amount Remaining (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      value={returnForm.amountRemaining}
+                      onChange={(e) => setReturnForm({ ...returnForm, amountRemaining: e.target.value })}
+                      placeholder="0"
+                      min="0"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Additional Expenses (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      value={returnForm.additionalExpense}
+                      onChange={(e) => setReturnForm({ ...returnForm, additionalExpense: e.target.value })}
+                      placeholder="0"
+                      min="0"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {returnError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  <span>{returnError}</span>
+                </div>
+              )}
+
+              {returnSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  <span>{returnSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={returnSubmitting}
+                  className="flex-1 flex items-center justify-center gap-2 bg-amber-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-amber-700 transition-all duration-200 disabled:opacity-60 shadow-md shadow-amber-600/20"
+                >
+                  {returnSubmitting ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+                  {returnSubmitting ? "Processing..." : "Complete Return & Add to Stock"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeReturnModal}
+                  className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
