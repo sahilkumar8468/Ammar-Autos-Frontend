@@ -253,8 +253,8 @@ export function downloadInventoryPDF(inventory = [], summary = {}) {
     <!-- Summary Cards -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center;">
-        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Unsold Purchased Bikes</div>
-        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px;">${summary.totalPurchased || 0}</div>
+        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Unsold Bikes in Stock</div>
+        <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px;">${summary.totalUnsold ?? summary.totalPurchased ?? 0}</div>
       </div>
       <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:16px;text-align:center;">
         <div style="font-size:10px;font-weight:700;color:#047857;text-transform:uppercase;">Total Inventory Value</div>
@@ -267,7 +267,7 @@ export function downloadInventoryPDF(inventory = [], summary = {}) {
     </div>
 
     <!-- Table -->
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Available Inventory List</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Unsold Available Inventory List</div>
     <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
       <thead>
         <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">

@@ -74,29 +74,29 @@ export default function InventoryDashboard() {
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Package size={28} /></div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Purchased Bikes</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{summary.totalPurchased}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Unsold Bikes in Stock</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{summary.totalUnsold ?? summary.totalPurchased ?? 0}</p>
             </div>
           </div>
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={28} /></div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Inventory Value</p>
-              <p className="text-2xl font-bold text-emerald-700 mt-1">Rs. {Number(summary.totalPurchaseValue).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-emerald-700 mt-1">Rs. {Number(summary.totalPurchaseValue || 0).toLocaleString()}</p>
             </div>
           </div>
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl"><DollarSign size={28} /></div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Remaining Payment</p>
-              <p className="text-2xl font-bold text-rose-600 mt-1">Rs. {Number(summary.remainingBalance).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-rose-600 mt-1">Rs. {Number(summary.remainingBalance || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Purchased Bikes List ({total})</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Unsold Bikes in Stock ({total})</h2>
             <button
               onClick={() => downloadInventoryPDF(inventory, summary)}
               className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-all"
@@ -108,7 +108,7 @@ export default function InventoryDashboard() {
           {loading ? (
             <div className="flex justify-center py-16 text-slate-400"><Loader2 size={28} className="animate-spin" /></div>
           ) : inventory.length === 0 ? (
-            <p className="text-xs text-slate-400 py-12 text-center">No purchased bikes found in inventory.</p>
+            <p className="text-xs text-slate-400 py-12 text-center">No unsold bikes found in inventory.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
