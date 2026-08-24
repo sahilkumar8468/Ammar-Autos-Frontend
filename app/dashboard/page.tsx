@@ -15,12 +15,14 @@ import {
   LogOut,
   FileText,
   TrendingUp,
+  Receipt,
 } from "lucide-react";
 
 const modules = [
   { icon: <ShoppingCart size={28} />, label: "Purchase", color: "bg-blue-50 text-blue-600 hover:bg-blue-100", route: "/purchase-dashboard" },
   { icon: <DollarSign size={28} />, label: "Sales", color: "bg-emerald-50 text-emerald-600 hover:bg-emerald-100", route: "/pages/sales" },
   { icon: <TrendingUp size={28} />, label: "Earning & Profit", color: "bg-teal-50 text-teal-600 hover:bg-teal-100", route: "/earning-dashboard" },
+  { icon: <Receipt size={28} />, label: "Daily Expense", color: "bg-rose-50 text-rose-600 hover:bg-rose-100", route: "/expense-dashboard" },
   { icon: <Package size={28} />, label: "Inventory", color: "bg-amber-50 text-amber-600 hover:bg-amber-100", route: "/inventory-dashboard" },
   { icon: <FileText size={28} />, label: "Registration", color: "bg-purple-50 text-purple-600 hover:bg-purple-100", route: "/registration-dashboard" },
   { icon: <User size={28} />, label: "Customer", color: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100", route: "/customer-dashboard" },
