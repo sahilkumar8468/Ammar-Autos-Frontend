@@ -7,9 +7,10 @@ import {
   Plus,
   RefreshCw,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   ShoppingCart,
-  Calendar,
+  Calendar as CalendarIcon,
   Search,
   CheckCircle2,
   FileDown,
@@ -21,7 +22,15 @@ import {
   Tag,
   Clock,
   Filter,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Wallet,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  PieChart,
+  Layers
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 
@@ -37,6 +46,23 @@ const EXPENSE_CATEGORIES = [
   "General"
 ];
 
+const getCategoryColor = (cat) => {
+  switch (cat) {
+    case "Salary / Wages":
+      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "Tea & Refreshment":
+      return "bg-amber-100 text-amber-700 border-amber-200";
+    case "Bike Parts & Repair":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "Rent & Utilities":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "Workshop Maintenance":
+      return "bg-teal-100 text-teal-700 border-teal-200";
+    default:
+      return "bg-slate-100 text-slate-700 border-slate-200";
+  }
+};
+
 const money = (n) => (n != null ? `Rs. ${Number(n).toLocaleString()}` : "—");
 
 const formatDate = (val) => {
@@ -44,6 +70,13 @@ const formatDate = (val) => {
   const d = new Date(val);
   if (isNaN(d)) return "—";
   return d.toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const formatTime = (val) => {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d)) return "";
+  return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
 };
 
 const emptyExpenseForm = {
@@ -57,8 +90,9 @@ const emptyExpenseForm = {
 export default function ExpenseDashboard() {
   const router = useRouter();
 
-  // Date Range state
-  const [range, setRange] = useState("thisMonth"); // "thisMonth" | "pastMonth" | "6months" | "1year" | "perMonth" | "custom" | "all"
+  // Date Range state — DEFAULT TO "today"
+  const [range, setRange] = useState("today"); // "today" | "yesterday" | "specificDate" | "thisMonth" | "pastMonth" | "6months" | "1year" | "perMonth" | "custom" | "all"
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [monthStr, setMonthStr] = useState("");
@@ -89,7 +123,7 @@ export default function ExpenseDashboard() {
     ledger: []
   });
 
-  // Expense Modal State
+  // Modal State
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
@@ -97,13 +131,22 @@ export default function ExpenseDashboard() {
   const [formError, setFormError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Inline Quick Add State
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickAmount, setQuickAmount] = useState("");
+  const [quickCategory, setQuickCategory] = useState("General");
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
+
   const fetchOverviewData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
       params.set("range", range);
-      if (range === "custom") {
+
+      if (range === "specificDate") {
+        params.set("date", selectedDate);
+      } else if (range === "custom") {
         if (startDate) params.set("startDate", startDate);
         if (endDate) params.set("endDate", endDate);
       } else if (range === "perMonth" && monthStr) {
@@ -114,7 +157,7 @@ export default function ExpenseDashboard() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to fetch expense & ledger overview");
+        throw new Error(json.message || "Failed to fetch daily expense overview");
       }
 
       setOverviewData(json);
@@ -123,36 +166,59 @@ export default function ExpenseDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [range, startDate, endDate, monthStr]);
+  }, [range, selectedDate, startDate, endDate, monthStr]);
 
   useEffect(() => {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
-  // Handle Create / Edit Expense
-  const openAddExpense = () => {
-    setEditId(null);
-    setExpenseForm({
-      ...emptyExpenseForm,
-      expenseDate: new Date().toISOString().slice(0, 10)
-    });
-    setFormError("");
-    setShowModal(true);
+  // Navigate date by +/- 1 day
+  const changeDay = (offset) => {
+    let baseDate = new Date();
+    if (range === "specificDate" && selectedDate) {
+      baseDate = new Date(selectedDate);
+    } else if (range === "yesterday") {
+      baseDate.setDate(baseDate.getDate() - 1);
+    }
+    baseDate.setDate(baseDate.getDate() + offset);
+    const newDateStr = baseDate.toISOString().slice(0, 10);
+    setSelectedDate(newDateStr);
+    setRange("specificDate");
   };
 
-  const openEditExpense = (item) => {
-    setEditId(item.id);
-    setExpenseForm({
-      title: item.title || "",
-      amount: item.amount || "",
-      category: item.category || "General",
-      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-      description: item.description || ""
-    });
-    setFormError("");
-    setShowModal(true);
+  // Handle Quick Add Expense
+  const handleQuickAdd = async (e) => {
+    e.preventDefault();
+    if (!quickTitle.trim() || !quickAmount) return;
+    setQuickSubmitting(true);
+    try {
+      const res = await fetch(`${URL}/expense`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: quickTitle.trim(),
+          amount: parseFloat(quickAmount),
+          category: quickCategory,
+          expenseDate: range === "specificDate" ? selectedDate : new Date().toISOString().slice(0, 10),
+          description: "Quick entry"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to record expense");
+
+      setQuickTitle("");
+      setQuickAmount("");
+      setSuccessMsg(`Recorded "${quickTitle.trim()}" (Rs. ${Number(quickAmount).toLocaleString()}) successfully!`);
+      fetchOverviewData();
+      setTimeout(() => setSuccessMsg(""), 3500);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setQuickSubmitting(false);
+    }
   };
 
+  // Handle Full Modal Submit
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -172,12 +238,35 @@ export default function ExpenseDashboard() {
       setSuccessMsg(editId ? "Expense updated successfully!" : "Expense recorded successfully!");
       setShowModal(false);
       fetchOverviewData();
-      setTimeout(() => setSuccessMsg(""), 3000);
+      setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err) {
       setFormError(err.message);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openAddExpense = () => {
+    setEditId(null);
+    setExpenseForm({
+      ...emptyExpenseForm,
+      expenseDate: range === "specificDate" ? selectedDate : new Date().toISOString().slice(0, 10)
+    });
+    setFormError("");
+    setShowModal(true);
+  };
+
+  const openEditExpense = (item) => {
+    setEditId(item.id);
+    setExpenseForm({
+      title: item.title || "",
+      amount: item.amount || "",
+      category: item.category || "General",
+      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      description: item.description || ""
+    });
+    setFormError("");
+    setShowModal(true);
   };
 
   const handleDeleteExpense = async (id) => {
@@ -186,7 +275,9 @@ export default function ExpenseDashboard() {
       const res = await fetch(`${URL}/expense/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete expense");
+      setSuccessMsg("Expense record deleted successfully.");
       fetchOverviewData();
+      setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       alert(err.message);
     }
@@ -235,95 +326,109 @@ export default function ExpenseDashboard() {
     );
   });
 
-  const rangeLabelMap = {
-    thisMonth: "This Month",
-    pastMonth: "Past Month",
-    "6months": "Past 6 Months",
-    "1year": "Past 1 Year",
-    perMonth: `Month: ${monthStr || "Selected"}`,
-    custom: `Custom (${startDate || "Start"} to ${endDate || "End"})`,
-    all: "All Time"
+  const getRangeTitle = () => {
+    if (range === "today") return `Today (${new Date().toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })})`;
+    if (range === "yesterday") {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      return `Yesterday (${y.toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })})`;
+    }
+    if (range === "specificDate") {
+      const d = new Date(selectedDate);
+      return `Date: ${d.toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}`;
+    }
+    if (range === "thisMonth") return "Current Month";
+    if (range === "pastMonth") return "Past Month";
+    if (range === "6months") return "Past 6 Months";
+    if (range === "1year") return "Past 1 Year";
+    if (range === "perMonth") return `Month: ${monthStr || "Selected"}`;
+    if (range === "custom") return `Custom Range (${startDate || "Start"} to ${endDate || "End"})`;
+    return "All Time";
   };
 
-  const currentRangeLabel = rangeLabelMap[range] || "This Month";
+  const currentRangeLabel = getRangeTitle();
+  const summary = overviewData.summary || {};
+  const isNetProfitPositive = (summary.netProfit || 0) >= 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/90">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans pb-20 selection:bg-rose-500 selection:text-white">
+      {/* Top Navigation Bar */}
+      <header className="w-full bg-white/95 border-b border-slate-200/80 sticky top-0 z-40 shadow-xs backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
             <button
               onClick={() => router.push("/dashboard")}
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 shadow-2xs"
               title="Back to Dashboard"
             >
-              <ArrowLeft size={22} />
+              <ArrowLeft size={20} />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xl">🧾</span>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Daily Expense & Ledger</h1>
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-rose-500 text-white font-bold shadow-sm shadow-rose-500/20 text-base">
+                  ₹
+                </span>
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
+                  Daily Expense & Financial Ledger
+                </h1>
               </div>
-              <p className="text-xs text-slate-500 font-medium">
-                Track daily operational costs, auto-synced bike transactions & showroom net profit
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Real-time operational cash tracking, bike sales profit & net showroom bottom line
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center flex-wrap gap-2.5">
             <button
               onClick={() => downloadExpensePDF(overviewData, currentRangeLabel)}
-              className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/10"
-              title="Download Comprehensive Financial Report PDF"
+              className="flex items-center gap-2 bg-white text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 text-xs font-bold px-3.5 py-2.5 rounded-xl hover:bg-emerald-50/50 transition-all shadow-2xs cursor-pointer"
             >
-              <FileDown size={15} /> Download PDF Report
+              <FileDown size={15} className="text-emerald-600" /> Export PDF
             </button>
             <button
               onClick={openAddExpense}
-              className="flex items-center gap-2 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-all shadow-md"
+              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-rose-600/20 cursor-pointer"
             >
               <Plus size={15} /> Add Expense
             </button>
             <button
               onClick={fetchOverviewData}
               disabled={loading}
-              className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+              className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200/60 transition-all cursor-pointer disabled:opacity-50"
               title="Refresh Data"
             >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={15} className={loading ? "animate-spin text-rose-600" : ""} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Success Alert */}
+      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* Success Alert Banner */}
         {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-sm font-semibold shadow-sm animate-fade-in">
-            <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0" />
-            <span>{successMsg}</span>
+          <div className="p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-3 text-emerald-900 text-sm font-bold shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+            <button onClick={() => setSuccessMsg("")} className="text-emerald-700 hover:text-emerald-900">
+              <X size={16} />
+            </button>
           </div>
         )}
 
-        {/* Date Range Selector */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Calendar size={14} /> Period & Date Filter
-              </h3>
-              <p className="text-sm font-semibold text-slate-800">
-                Viewing ledger for: <span className="text-teal-700 font-bold">{currentRangeLabel}</span>
-              </p>
-            </div>
-
-            {/* Quick Preset Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
+        {/* Date Filter & Range Control Card */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            {/* Range Presets */}
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none">
               {[
+                { id: "today", label: "Today" },
+                { id: "yesterday", label: "Yesterday" },
                 { id: "thisMonth", label: "This Month" },
                 { id: "pastMonth", label: "Past Month" },
-                { id: "6months", label: "Past 6 Months" },
-                { id: "1year", label: "Past 1 Year" },
+                { id: "6months", label: "6 Months" },
+                { id: "1year", label: "1 Year" },
                 { id: "perMonth", label: "Specific Month" },
                 { id: "custom", label: "Custom Range" },
                 { id: "all", label: "All Time" },
@@ -331,40 +436,75 @@ export default function ExpenseDashboard() {
                 <button
                   key={btn.id}
                   onClick={() => setRange(btn.id)}
-                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  className={`px-3.5 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                     range === btn.id
-                      ? "bg-slate-900 text-white shadow-md shadow-slate-900/10"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-slate-900 text-white shadow-sm shadow-slate-900/20"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
                   }`}
                 >
                   {btn.label}
                 </button>
               ))}
             </div>
+
+            {/* Day Navigators (Previous / Next Day) */}
+            <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                <button
+                  onClick={() => changeDay(-1)}
+                  className="p-1.5 hover:bg-white text-slate-700 hover:text-slate-900 rounded-lg transition-all shadow-2xs cursor-pointer"
+                  title="Previous Day"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="px-3 py-1 text-xs font-black text-slate-800 tracking-tight flex items-center gap-1.5">
+                  <CalendarIcon size={13} className="text-slate-500" />
+                  <span>{currentRangeLabel}</span>
+                </div>
+                <button
+                  onClick={() => changeDay(1)}
+                  className="p-1.5 hover:bg-white text-slate-700 hover:text-slate-900 rounded-lg transition-all shadow-2xs cursor-pointer"
+                  title="Next Day"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <input
+                type="date"
+                value={range === "specificDate" ? selectedDate : new Date().toISOString().slice(0, 10)}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setRange("specificDate");
+                }}
+                className="px-3 py-2 text-xs font-bold border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800 shadow-2xs cursor-pointer"
+                title="Jump to specific calendar day"
+              />
+            </div>
           </div>
 
-          {/* Conditional Input Controls */}
+          {/* Conditional Input Controls for Month or Custom Range */}
           {range === "perMonth" && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
-              <label className="text-xs font-bold text-slate-600">Select Month:</label>
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-600">Select Month:</span>
               <input
                 type="month"
                 value={monthStr}
                 onChange={(e) => setMonthStr(e.target.value)}
-                className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="px-3.5 py-2 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
               />
             </div>
           )}
 
           {range === "custom" && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-4">
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-600">Start Date:</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -373,390 +513,511 @@ export default function ExpenseDashboard() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* Financial KPI Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Net Profit Card */}
-          <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${
-            overviewData.summary.netProfit >= 0
-              ? "bg-emerald-50/70 border-emerald-200"
-              : "bg-rose-50/70 border-rose-200"
+        {/* HERO METRICS & KPI CARDS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* NET PROFIT HERO CARD */}
+          <div className={`col-span-1 md:col-span-2 lg:col-span-2 p-6 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all ${
+            isNetProfitPositive
+              ? "bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white border-emerald-700/60 shadow-emerald-950/10"
+              : "bg-gradient-to-br from-rose-900 via-rose-800 to-slate-900 text-white border-rose-700/60 shadow-rose-950/10"
           }`}>
+            {/* Background Glow */}
+            <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Net Profit</span>
-              <div className={`p-2 rounded-xl ${
-                overviewData.summary.netProfit >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-xl backdrop-blur-md ${isNetProfitPositive ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
+                  {isNetProfitPositive ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/80">
+                    Net Showroom Profit
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-semibold">{currentRangeLabel}</p>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider backdrop-blur-md ${
+                isNetProfitPositive ? "bg-emerald-400/20 text-emerald-200 border border-emerald-400/30" : "bg-rose-400/20 text-rose-200 border border-rose-400/30"
               }`}>
+                {isNetProfitPositive ? "Profitable" : "Deficit"}
+              </span>
+            </div>
+
+            <div className="mt-6">
+              <div className="text-3xl lg:text-4xl font-black tracking-tight drop-shadow-xs">
+                {money(summary.netProfit)}
+              </div>
+              <div className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-slate-200">
+                <span>Bike Profit: <strong className="text-emerald-300 font-bold">+{money(summary.totalGrossProfit)}</strong></span>
+                <span>Expenses: <strong className="text-rose-300 font-bold">-{money(summary.totalGeneralExpenses)}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* GROSS BIKE PROFIT */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-teal-300 transition-all group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-teal-600 transition-colors">
+                Gross Bike Profit
+              </span>
+              <div className="p-2 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-all">
                 <TrendingUp size={18} />
               </div>
             </div>
-            <div className="mt-3">
-              <p className={`text-2xl font-black ${
-                overviewData.summary.netProfit >= 0 ? "text-emerald-700" : "text-rose-700"
-              }`}>
-                {money(overviewData.summary.netProfit)}
+            <div className="mt-4">
+              <div className="text-2xl font-black text-teal-700 tracking-tight">
+                {money(summary.totalGrossProfit)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                {summary.salesCount} bike(s) sold in period
               </p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">Bike Profit − Daily Expenses</p>
             </div>
           </div>
 
-          {/* Gross Bike Profit Card */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          {/* GENERAL DAILY EXPENSES */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-rose-300 transition-all group">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Gross Bike Profit</span>
-              <div className="p-2 rounded-xl bg-teal-50 text-teal-600"><DollarSign size={18} /></div>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-rose-600 transition-colors">
+                General Expenses
+              </span>
+              <div className="p-2 rounded-xl bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all">
+                <Receipt size={18} />
+              </div>
             </div>
-            <div className="mt-3">
-              <p className="text-2xl font-black text-teal-700">{money(overviewData.summary.totalGrossProfit)}</p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">{overviewData.summary.salesCount} bikes sold in period</p>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-rose-600 tracking-tight">
+                {money(summary.totalGeneralExpenses)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                {summary.expensesCount} operational entry(s)
+              </p>
             </div>
           </div>
 
-          {/* General Daily Expenses Card */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          {/* TOTAL BIKE SALES REVENUE */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-blue-300 transition-all group">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">General Expenses</span>
-              <div className="p-2 rounded-xl bg-rose-50 text-rose-600"><Receipt size={18} /></div>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
+                Sales Revenue
+              </span>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                <DollarSign size={18} />
+              </div>
             </div>
-            <div className="mt-3">
-              <p className="text-2xl font-black text-rose-600">{money(overviewData.summary.totalGeneralExpenses)}</p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">{overviewData.summary.expensesCount} operational entries</p>
-            </div>
-          </div>
-
-          {/* Bike Purchases Outflow */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Bike Purchases</span>
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600"><ShoppingCart size={18} /></div>
-            </div>
-            <div className="mt-3">
-              <p className="text-2xl font-black text-amber-700">{money(overviewData.summary.totalBikePurchasesCost)}</p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">{overviewData.summary.purchasesCount} bikes bought in period</p>
-            </div>
-          </div>
-
-          {/* Total Bike Sales Revenue */}
-          <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Bike Sales Revenue</span>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600"><DollarSign size={18} /></div>
-            </div>
-            <div className="mt-3">
-              <p className="text-2xl font-black text-slate-900">{money(overviewData.summary.totalBikeSalesRevenue)}</p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">Total revenue collected</p>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-slate-900 tracking-tight">
+                {money(summary.totalBikeSalesRevenue)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                Purchases: {money(summary.totalBikePurchasesCost)}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Expense Category Breakdown Pills */}
-        {overviewData.categoryBreakdown && overviewData.categoryBreakdown.length > 0 && (
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-              <Tag size={14} /> General Expense Breakdown by Category
+        {/* QUICK ONE-CLICK INLINE EXPENSE ENTRY BAR */}
+        <div className="bg-white rounded-2xl p-4 border border-rose-200/90 shadow-xs">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+              <Plus size={14} />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+              Quick Add Daily Expense <span className="text-slate-400 font-normal normal-case">(e.g. Employee 500 Daily Wage, Chai 150, Parts 1200)</span>
             </h3>
-            <div className="flex flex-wrap items-center gap-2.5">
+          </div>
+
+          <form onSubmit={handleQuickAdd} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-5">
+              <input
+                type="text"
+                required
+                placeholder="Expense Title (e.g. Daily Wage, Tea, Bike Spare Parts)"
+                value={quickTitle}
+                onChange={(e) => setQuickTitle(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+              />
+            </div>
+
+            <div className="sm:col-span-3">
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rs.</span>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Amount"
+                  value={quickAmount}
+                  onChange={(e) => setQuickAmount(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <select
+                value={quickCategory}
+                onChange={(e) => setQuickCategory(e.target.value)}
+                className="w-full px-3 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
+              >
+                {EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                disabled={quickSubmitting || !quickTitle.trim() || !quickAmount}
+                className="w-full h-full py-2.5 px-4 bg-slate-900 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {quickSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                <span>Record</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* EXPENSE CATEGORY BREAKDOWN PILLS */}
+        {overviewData.categoryBreakdown && overviewData.categoryBreakdown.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+              <Tag size={13} /> Expense Breakdown by Category
+            </h4>
+            <div className="flex flex-wrap items-center gap-2">
               {overviewData.categoryBreakdown.map((cat) => (
-                <div key={cat.category} className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-700">{cat.category}:</span>
-                  <span className="text-xs font-black text-rose-600">{money(cat.amount)}</span>
+                <div
+                  key={cat.category}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${getCategoryColor(cat.category)}`}
+                >
+                  <span>{cat.category}:</span>
+                  <span className="font-black">{money(cat.amount)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Ledger & Activity Section with Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            {/* Tabs */}
-            <div className="flex flex-wrap items-center gap-2">
+        {/* TABBED LEDGER & TRANSACTION EXPLORER */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+          {/* Tabs & Search Header */}
+          <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-1.5">
               {[
-                { id: "ledger", label: `All Activity Ledger (${filteredLedger.length})` },
-                { id: "expenses", label: `General Expenses (${filteredExpenses.length})` },
-                { id: "purchases", label: `Bike Purchases (${filteredPurchases.length})` },
-                { id: "sales", label: `Bike Sales & Profit (${filteredSales.length})` },
+                { id: "ledger", label: "All Activity Feed", count: filteredLedger.length, icon: <Layers size={14} /> },
+                { id: "expenses", label: "General Expenses", count: filteredExpenses.length, icon: <Receipt size={14} /> },
+                { id: "purchases", label: "Bike Purchases", count: filteredPurchases.length, icon: <ShoppingCart size={14} /> },
+                { id: "sales", label: "Bike Sales & Profit", count: filteredSales.length, icon: <DollarSign size={14} /> },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-2xl transition-all cursor-pointer ${
                     activeTab === tab.id
-                      ? "bg-slate-900 text-white shadow-md"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
                   }`}
                 >
-                  {tab.label}
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-white text-slate-700 border border-slate-200"
+                  }`}>
+                    {tab.count}
+                  </span>
                 </button>
               ))}
             </div>
 
-            {/* Search Input */}
-            <div className="relative w-full sm:w-64">
+            {/* Search Box */}
+            <div className="relative w-full md:w-72">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search transactions..."
+                placeholder="Search transactions, titles, bikes..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                className="w-full pl-9 pr-3.5 py-2 text-xs font-medium border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
               />
             </div>
           </div>
 
+          {/* Table Content */}
           {loading ? (
-            <div className="flex justify-center py-20 text-slate-400">
-              <Loader2 size={32} className="animate-spin" />
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+              <Loader2 size={36} className="animate-spin text-rose-600" />
+              <p className="text-xs font-bold tracking-wide uppercase text-slate-400">Loading daily ledger...</p>
             </div>
           ) : (
-            <>
+            <div className="overflow-x-auto">
               {/* TAB 1: ALL ACTIVITY LEDGER */}
               {activeTab === "ledger" && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        {["#", "Date", "Type / Category", "Description / Details", "Inflow (Rs.)", "Outflow / Cost", "Net Impact"].map((h) => (
-                          <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
-                        ))}
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 w-12">#</th>
+                      <th className="py-3.5 px-4">Date / Time</th>
+                      <th className="py-3.5 px-4">Type</th>
+                      <th className="py-3.5 px-4">Transaction / Details</th>
+                      <th className="py-3.5 px-4 text-right">Inflow (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Outflow (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Profit / Net Impact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                    {filteredLedger.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
+                          No transactions or expenses found for this period.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredLedger.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="text-center py-12 text-slate-400 text-xs font-medium">
-                            No activities or transactions recorded for this period.
+                    ) : (
+                      filteredLedger.map((item, i) => (
+                        <tr key={`${item.type}-${item.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-800">{formatDate(item.date)}</div>
+                            <div className="text-[10px] text-slate-400">{formatTime(item.date)}</div>
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border ${
+                              item.type === "manual_expense"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : item.type === "bike_purchase"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            }`}>
+                              {item.type === "manual_expense"
+                                ? item.category || "Expense"
+                                : item.type === "bike_purchase"
+                                ? "Bike Purchase"
+                                : "Bike Sale"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900">{item.title}</div>
+                            {item.description && <div className="text-[11px] text-slate-500 font-normal mt-0.5">{item.description}</div>}
+                            {item.buyerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Buyer: <strong>{item.buyerName}</strong></div>}
+                            {item.customerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Seller: <strong>{item.customerName}</strong></div>}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-700 whitespace-nowrap">
+                            {item.inflow > 0 ? money(item.inflow) : "—"}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap">
+                            {item.outflow > 0 ? money(item.outflow) : "—"}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black whitespace-nowrap">
+                            {item.type === "bike_sale" ? (
+                              <span className={item.profit >= 0 ? "text-emerald-700" : "text-rose-600"}>
+                                +{money(item.profit)}
+                              </span>
+                            ) : (
+                              <span className="text-rose-600">
+                                -{money(item.outflow || item.amount)}
+                              </span>
+                            )}
                           </td>
                         </tr>
-                      ) : (
-                        filteredLedger.map((item, i) => (
-                          <tr key={`${item.type}-${item.id}-${i}`} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap font-medium">{formatDate(item.date)}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                                item.type === "manual_expense"
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                  : item.type === "bike_purchase"
-                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              }`}>
-                                {item.type === "manual_expense"
-                                  ? `Expense: ${item.category}`
-                                  : item.type === "bike_purchase"
-                                  ? "Bike Purchase"
-                                  : "Bike Sale"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-slate-800 font-semibold">
-                              <div>{item.title}</div>
-                              {item.description && <div className="text-xs text-slate-400 font-normal mt-0.5">{item.description}</div>}
-                              {item.buyerName && <div className="text-xs text-slate-500 font-normal mt-0.5">Buyer: {item.buyerName}</div>}
-                              {item.customerName && <div className="text-xs text-slate-500 font-normal mt-0.5">Seller: {item.customerName}</div>}
-                            </td>
-                            <td className="px-4 py-3 text-emerald-700 font-bold whitespace-nowrap">
-                              {item.inflow > 0 ? money(item.inflow) : "—"}
-                            </td>
-                            <td className="px-4 py-3 text-rose-600 font-bold whitespace-nowrap">
-                              {item.outflow > 0 ? money(item.outflow) : "—"}
-                            </td>
-                            <td className="px-4 py-3 font-black whitespace-nowrap">
-                              {item.type === "bike_sale" ? (
-                                <span className={item.profit >= 0 ? "text-emerald-700" : "text-rose-600"}>
-                                  +{money(item.profit)} (Profit)
-                                </span>
-                              ) : (
-                                <span className="text-rose-600">
-                                  -{money(item.outflow || item.amount)}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
 
               {/* TAB 2: GENERAL EXPENSES */}
               {activeTab === "expenses" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-slate-500 font-medium">Showing custom operational expenses (wages, tea, parts, utilities)</p>
-                    <button
-                      onClick={openAddExpense}
-                      className="flex items-center gap-1.5 text-xs font-bold text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all"
-                    >
-                      <Plus size={14} /> Add New Expense
-                    </button>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          {["#", "Date", "Title", "Category", "Amount (Rs.)", "Description", "Actions"].map((h) => (
-                            <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
-                          ))}
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 w-12">#</th>
+                      <th className="py-3.5 px-4">Date</th>
+                      <th className="py-3.5 px-4">Expense Title</th>
+                      <th className="py-3.5 px-4">Category</th>
+                      <th className="py-3.5 px-4 text-right">Amount (Rs.)</th>
+                      <th className="py-3.5 px-4">Description</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                    {filteredExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
+                          No manual operational expenses recorded for this date.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExpenses.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-800">
+                            {formatDate(item.expenseDate || item.createdAt)}
+                          </td>
+                          <td className="py-3.5 px-4 font-black text-slate-900">{item.title}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold border ${getCategoryColor(item.category)}`}>
+                              {item.category || "General"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap text-sm">
+                            {money(item.amount)}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{item.description || "—"}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => openEditExpense(item)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                                title="Edit Expense"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteExpense(item.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                title="Delete Expense"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {filteredExpenses.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-12 text-slate-400 text-xs font-medium">
-                              No manual expenses found in this period.
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredExpenses.map((item, i) => (
-                            <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap font-medium">{formatDate(item.expenseDate || item.createdAt)}</td>
-                              <td className="px-4 py-3 font-bold text-slate-800">{item.title}</td>
-                              <td className="px-4 py-3">
-                                <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
-                                  {item.category || "General"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 font-black text-rose-600 whitespace-nowrap">{money(item.amount)}</td>
-                              <td className="px-4 py-3 text-slate-500 max-w-xs truncate">{item.description || "—"}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => openEditExpense(item)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                    title="Edit Expense"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteExpense(item.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                    title="Delete Expense"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
 
-              {/* TAB 3: BIKE PURCHASES (AUTO-SYNCED) */}
+              {/* TAB 3: BIKE PURCHASES */}
               {activeTab === "purchases" && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        {["#", "Purchase Date", "Bike Model", "Registration No", "Chasis No", "Engine No", "Seller Name", "Purchase Cost"].map((h) => (
-                          <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
-                        ))}
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 w-12">#</th>
+                      <th className="py-3.5 px-4">Purchase Date</th>
+                      <th className="py-3.5 px-4">Bike Details</th>
+                      <th className="py-3.5 px-4">Reg No</th>
+                      <th className="py-3.5 px-4">Chasis No</th>
+                      <th className="py-3.5 px-4">Seller Name</th>
+                      <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                    {filteredPurchases.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
+                          No bike purchases recorded on this date.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPurchases.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="text-center py-12 text-slate-400 text-xs font-medium">
-                            No bike purchases recorded in this period.
+                    ) : (
+                      filteredPurchases.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-800">
+                            {formatDate(item.purchaseDateTime || item.createdAt)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-900">
+                            {[item.bikeCompany, item.bikeModel].filter(Boolean).join(" ") || "—"}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-slate-700 font-bold">{item.registrationNo || "—"}</td>
+                          <td className="py-3.5 px-4 font-mono text-slate-500">{item.chasisNo || "—"}</td>
+                          <td className="py-3.5 px-4 text-slate-700 font-medium">{item.customerName || "—"}</td>
+                          <td className="py-3.5 px-4 text-right font-black text-amber-700 whitespace-nowrap text-sm">
+                            {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
                           </td>
                         </tr>
-                      ) : (
-                        filteredPurchases.map((item, i) => (
-                          <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatDate(item.purchaseDateTime || item.createdAt)}</td>
-                            <td className="px-4 py-3 font-bold text-slate-800">{[item.bikeCompany, item.bikeModel].filter(Boolean).join(" ") || "—"}</td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{item.registrationNo || "—"}</td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{item.chasisNo || "—"}</td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{item.engineNo || "—"}</td>
-                            <td className="px-4 py-3 text-slate-600">{item.customerName || "—"}</td>
-                            <td className="px-4 py-3 font-black text-amber-700 whitespace-nowrap">
-                              {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
 
-              {/* TAB 4: BIKE SALES & PROFIT (AUTO-SYNCED) */}
+              {/* TAB 4: BIKE SALES & PROFIT */}
               {activeTab === "sales" && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        {["#", "Sale Date", "Bike Description", "Registration No", "Buyer Name", "Sale Price", "Purchase Cost", "Gross Profit"].map((h) => (
-                          <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
-                        ))}
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 w-12">#</th>
+                      <th className="py-3.5 px-4">Sale Date</th>
+                      <th className="py-3.5 px-4">Bike Details</th>
+                      <th className="py-3.5 px-4">Reg No</th>
+                      <th className="py-3.5 px-4">Buyer Name</th>
+                      <th className="py-3.5 px-4 text-right">Sale Price (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Gross Profit (Rs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                    {filteredSales.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-16 text-slate-400 font-semibold">
+                          No bike sales recorded on this date.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSales.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="text-center py-12 text-slate-400 text-xs font-medium">
-                            No bike sales recorded in this period.
+                    ) : (
+                      filteredSales.map((item, i) => (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-800">
+                            {formatDate(item.date)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-900">{item.title}</td>
+                          <td className="py-3.5 px-4 font-mono text-slate-700 font-bold">{item.registrationNo || "—"}</td>
+                          <td className="py-3.5 px-4 text-slate-700 font-medium">{item.buyerName || "—"}</td>
+                          <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                            {money(item.salePrice)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-bold text-slate-500 whitespace-nowrap">
+                            {money(item.cost)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-teal-700 whitespace-nowrap text-sm">
+                            +{money(item.profit)}
                           </td>
                         </tr>
-                      ) : (
-                        filteredSales.map((item, i) => (
-                          <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatDate(item.date)}</td>
-                            <td className="px-4 py-3 font-bold text-slate-800">{item.title}</td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{item.registrationNo || "—"}</td>
-                            <td className="px-4 py-3 text-slate-600">{item.buyerName || "—"}</td>
-                            <td className="px-4 py-3 font-black text-emerald-700 whitespace-nowrap">{money(item.salePrice)}</td>
-                            <td className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">{money(item.cost)}</td>
-                            <td className="px-4 py-3 font-black text-teal-700 whitespace-nowrap">+{money(item.profit)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
-            </>
+            </div>
           )}
         </div>
       </main>
 
-      {/* Add / Edit Expense Modal */}
+      {/* FULL ADD / EDIT EXPENSE MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
-                  <Receipt size={20} />
+                <div className="p-2.5 bg-rose-100 text-rose-700 rounded-2xl">
+                  <Receipt size={22} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">{editId ? "Edit Expense" : "Record Daily Expense"}</h2>
-                  <p className="text-xs text-slate-400">Enter daily operational cost (wages, tea, parts, utilities)</p>
+                  <h2 className="text-lg font-black text-slate-900">
+                    {editId ? "Edit Expense Entry" : "Record Daily Expense"}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-semibold">Enter operational expense details</p>
                 </div>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all">
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleExpenseSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Expense Title <span className="text-red-400">*</span>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
+                  Expense Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -764,14 +1025,14 @@ export default function ExpenseDashboard() {
                   placeholder="e.g. Employee Daily Wage, Chai Expense, Bike Spare Parts"
                   value={expenseForm.title}
                   onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                  className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    Amount (Rs.) <span className="text-red-400">*</span>
+                  <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
+                    Amount (Rs.) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -780,18 +1041,18 @@ export default function ExpenseDashboard() {
                     placeholder="e.g. 500"
                     value={expenseForm.amount}
                     onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    className="w-full px-4 py-3 text-sm font-black border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
                     Category
                   </label>
                   <select
                     value={expenseForm.category}
                     onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                    className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
                   >
                     {EXPENSE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -801,20 +1062,20 @@ export default function ExpenseDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Expense Date <span className="text-red-400">*</span>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
+                  Expense Date <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={expenseForm.expenseDate}
                   onChange={(e) => setExpenseForm({ ...expenseForm, expenseDate: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
+                  className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900 cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
                   Description / Note <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <textarea
@@ -822,12 +1083,12 @@ export default function ExpenseDashboard() {
                   placeholder="Additional details about this expense..."
                   value={expenseForm.description}
                   onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white resize-none"
+                  className="w-full px-4 py-3 text-sm font-medium border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900 resize-none"
                 />
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-2xl flex items-center gap-2">
                   <AlertCircle size={16} />
                   <span>{formError}</span>
                 </div>
@@ -837,15 +1098,15 @@ export default function ExpenseDashboard() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-60"
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-rose-600 text-white text-sm font-bold py-3.5 rounded-2xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  {submitting ? "Saving..." : editId ? "Update Expense" : "Save Expense"}
+                  <span>{submitting ? "Saving..." : editId ? "Update Expense" : "Save Expense"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                  className="flex-1 text-sm font-bold py-3.5 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
