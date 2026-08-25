@@ -85,7 +85,10 @@ export default function EarningDashboard() {
     fetchEarningData();
   }, [fetchEarningData]);
 
+  const [typeFilter, setTypeFilter] = useState("all"); // "all" | "sale" | "registration"
+
   const filteredProfitList = (data.profitList || []).filter((item) => {
+    if (typeFilter !== "all" && item.recordType !== typeFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -121,7 +124,7 @@ export default function EarningDashboard() {
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Earning & Profit Analytics</h1>
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Track Net Profit, Bike Sales vs Purchases & Inventory Stock Value
+                Track Net Profit, Registration Margin, Bike Sales vs Purchases & Stock Value
               </p>
             </div>
           </div>
@@ -227,9 +230,10 @@ export default function EarningDashboard() {
             <div className="text-3xl font-black tracking-tight mb-1">
               {money(data.summary.totalProfit)}
             </div>
-            <p className="text-xs text-teal-100 font-medium">
-              Calculated on {data.summary.totalSalesCount || 0} bike sales in selected range
-            </p>
+            <div className="text-[11px] text-teal-100 font-medium space-y-0.5 mt-2 pt-2 border-t border-teal-500/40">
+              <div>Bike Sales: <strong className="text-white">{money(data.summary.totalBikeSalesProfit || 0)}</strong></div>
+              <div>Registration Profit: <strong className="text-white">{money(data.summary.totalRegProfit || 0)}</strong></div>
+            </div>
           </div>
 
           {/* Bikes Sold Card */}
@@ -395,24 +399,48 @@ export default function EarningDashboard() {
           </div>
         </div>
 
-        {/* Detailed Profit Per Bike Table */}
+        {/* Detailed Profit Per Bike & Registration Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Sold Bikes & Profit Ledger</h3>
-              <p className="text-xs text-slate-500 font-medium">Individual profit breakdown for every sold motorcycle</p>
+              <h3 className="text-lg font-bold text-slate-900">Profit & Margin Ledger</h3>
+              <p className="text-xs text-slate-500 font-medium">Individual breakdown of bike sales &amp; registration profits</p>
             </div>
 
-            {/* Search Input */}
-            <div className="relative w-full sm:w-72">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by buyer, model, reg #..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none"
-              />
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {/* Type Filter Buttons */}
+              <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                <button
+                  onClick={() => setTypeFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${typeFilter === "all" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+                >
+                  All ({data.profitList?.length || 0})
+                </button>
+                <button
+                  onClick={() => setTypeFilter("sale")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${typeFilter === "sale" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+                >
+                  Bike Sales ({data.profitList?.filter(i => i.recordType === "sale").length || 0})
+                </button>
+                <button
+                  onClick={() => setTypeFilter("registration")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${typeFilter === "registration" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+                >
+                  Registrations ({data.profitList?.filter(i => i.recordType === "registration").length || 0})
+                </button>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative w-full sm:w-64">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search buyer, model, reg #..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -420,26 +448,27 @@ export default function EarningDashboard() {
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-3.5 px-4">Sale Date</th>
+                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">Type</th>
                   <th className="py-3.5 px-4">Bike Details</th>
-                  <th className="py-3.5 px-4">Buyer Name</th>
+                  <th className="py-3.5 px-4">Buyer / Reference</th>
                   <th className="py-3.5 px-4">Reg / Chasis No</th>
-                  <th className="py-3.5 px-4 text-right">Purchase Cost</th>
-                  <th className="py-3.5 px-4 text-right">Sale Price</th>
+                  <th className="py-3.5 px-4 text-right">Cost (Purchase/Agent)</th>
+                  <th className="py-3.5 px-4 text-right">Revenue (Sale/Customer)</th>
                   <th className="py-3.5 px-4 text-right">Net Profit</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
-                      Loading sales profit records...
+                    <td colSpan={8} className="py-12 text-center text-slate-400 text-sm">
+                      Loading profit records...
                     </td>
                   </tr>
                 ) : filteredProfitList.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
-                      No matching sold bike records found in this range.
+                    <td colSpan={8} className="py-12 text-center text-slate-400 text-sm">
+                      No matching records found in this range.
                     </td>
                   </tr>
                 ) : (
@@ -447,6 +476,11 @@ export default function EarningDashboard() {
                     <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4 font-semibold text-slate-600">
                         {formatDate(item.saleDate)}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] uppercase ${item.recordType === "registration" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}>
+                          {item.recordType === "registration" ? "📜 Reg Paper" : "🏍️ Bike Sale"}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         {item.bikeCompany} {item.bikeModel}
@@ -468,21 +502,15 @@ export default function EarningDashboard() {
                         {money(item.salePrice)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {item.hasMatchedPurchase ? (
-                          <span
-                            className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-full text-xs ${
-                              item.profit >= 0
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-rose-100 text-rose-800"
-                            }`}
-                          >
-                            {item.profit >= 0 ? "+" : ""}{money(item.profit)}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 font-semibold px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-600">
-                            Direct Sale ({money(item.salePrice)})
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-full text-xs ${
+                            item.profit >= 0
+                              ? item.recordType === "registration" ? "bg-purple-100 text-purple-900" : "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {item.profit >= 0 ? "+" : ""}{money(item.profit)}
+                        </span>
                       </td>
                     </tr>
                   ))

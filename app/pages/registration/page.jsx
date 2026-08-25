@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList } from "lucide-react";
+import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -16,6 +16,7 @@ function fmtDate(v) {
 
 function downloadRegPDF(item) {
   const win = window.open("", "_blank", "width=860,height=700");
+  const profit = Number(item.customerTotalMoney || 0) - Number(item.agentTotalMoney || 0);
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
   <title>Registration — ${item.bikeCompany} ${item.bikeModel}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -40,12 +41,14 @@ function downloadRegPDF(item) {
       ["Bike Company", item.bikeCompany],
       ["Bike Model", item.bikeModel],
       ["Chasis No", item.chasisNo],
-      ["Registration No", item.registrationNo],
+      ["Registration No", item.registrationNo || "AFR"],
       ["Agent / Letter", item.agentLetter],
-      ["Agent Total Money", money(item.agentTotalMoney)],
-      ["Agent Advance", money(item.agentAdvance)],
+      ["Agent Fee (Cost)", money(item.agentTotalMoney)],
+      ["Customer Fee (Charged)", money(item.customerTotalMoney)],
+      ["Showroom Profit", money(profit)],
+      ["Agent Advance Paid", money(item.agentAdvance)],
       ["Description", item.description || "—"],
-      ["Submitted", fmtDate(item.createdAt)],
+      ["Submitted Date", fmtDate(item.createdAt)],
     ].map(([l, v]) => `<tr style="border-bottom:1px solid #f1f5f9;">
       <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;width:40%;">${l}</td>
       <td style="padding:10px 14px;font-size:12px;color:#1e293b;font-weight:500;">${v || "—"}</td>
@@ -61,9 +64,11 @@ function downloadRegPDF(item) {
 const emptyForm = {
   searchType: "chasisNo",
   searchValue: "",
+  registrationNo: "",
   registrationDateTime: "",
   agentLetter: "",
   agentTotalMoney: "",
+  customerTotalMoney: "",
   agentAdvance: "",
   description: "",
 };
@@ -74,6 +79,7 @@ export default function RegistrationPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
   const [existingBike, setExistingBike] = useState(null);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -114,6 +120,7 @@ export default function RegistrationPage() {
       const data = await res.json();
       if (data.found) {
         setExistingBike(data.data);
+        setForm(f => ({ ...f, registrationNo: data.data.registrationNo || f.registrationNo }));
       } else {
         setFormError(`No purchase found with ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}: "${form.searchValue}"`);
       }
@@ -121,6 +128,45 @@ export default function RegistrationPage() {
       setFormError("Search failed. Please try again.");
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleOpenEdit = (item) => {
+    setEditingId(item.id);
+    setExistingBike({
+      id: item.bikeId,
+      bikeCompany: item.bikeCompany,
+      bikeModel: item.bikeModel,
+      chasisNo: item.chasisNo,
+      registrationNo: item.registrationNo
+    });
+    setForm({
+      searchType: item.searchType || "chasisNo",
+      searchValue: item.searchValue || item.chasisNo || "",
+      registrationNo: item.registrationNo || "",
+      registrationDateTime: item.registrationDateTime ? new Date(item.registrationDateTime).toISOString().slice(0, 16) : "",
+      agentLetter: item.agentLetter || "",
+      agentTotalMoney: item.agentTotalMoney ?? "",
+      customerTotalMoney: item.customerTotalMoney ?? "",
+      agentAdvance: item.agentAdvance ?? "",
+      description: item.description || "",
+    });
+    setFormError("");
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this registration record?")) return;
+    try {
+      const res = await fetch(`${BASE_URL}/registration/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchRegistrations();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Failed to delete registration");
+      }
+    } catch (e) {
+      alert("Delete failed. Please try again.");
     }
   };
 
@@ -137,27 +183,33 @@ export default function RegistrationPage() {
         bikeCompany: existingBike.bikeCompany || "",
         bikeModel: existingBike.bikeModel || "",
         chasisNo: existingBike.chasisNo || "",
-        registrationNo: existingBike.registrationNo || "",
+        registrationNo: form.registrationNo || existingBike.registrationNo || "",
         registrationDateTime: form.registrationDateTime || new Date().toISOString(),
         agentLetter: form.agentLetter,
         agentTotalMoney: form.agentTotalMoney,
+        customerTotalMoney: form.customerTotalMoney,
         agentAdvance: form.agentAdvance,
         description: form.description,
-        paperReceived: false,
       };
-      const res = await fetch(`${BASE_URL}/registration`, {
-        method: "POST",
+
+      const url = editingId ? `${BASE_URL}/registration/${editingId}` : `${BASE_URL}/registration`;
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (res.ok) {
         setForm(emptyForm);
+        setEditingId(null);
         setExistingBike(null);
         setShowForm(false);
         fetchRegistrations();
       } else {
         const d = await res.json();
-        setFormError(d.message || "Failed to save");
+        setFormError(d.message || "Failed to save registration");
       }
     } catch (e) {
       setFormError("Save failed. Please try again.");
@@ -168,13 +220,18 @@ export default function RegistrationPage() {
 
   const handleTogglePaper = async (id) => {
     try {
-      await fetch(`${BASE_URL}/registration/${id}/receive-paper`, { method: "PATCH" });
-      fetchRegistrations();
+      const res = await fetch(`${BASE_URL}/registration/${id}/receive-paper`, { method: "PATCH" });
+      if (res.ok) {
+        fetchRegistrations();
+      } else {
+        alert("Failed to update status");
+      }
     } catch (e) { alert("Update failed"); }
   };
 
   const pending = registrations.filter(r => !r.paperReceived).length;
   const received = registrations.filter(r => r.paperReceived).length;
+  const totalRegProfit = registrations.reduce((sum, r) => sum + (Number(r.customerTotalMoney || 0) - Number(r.agentTotalMoney || 0)), 0);
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
@@ -193,7 +250,7 @@ export default function RegistrationPage() {
           <div className="flex items-center gap-3">
             <button onClick={fetchRegistrations} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><RefreshCw size={16} /></button>
             <button
-              onClick={() => { setShowForm(true); setForm(emptyForm); setExistingBike(null); setFormError(""); }}
+              onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm); setExistingBike(null); setFormError(""); }}
               className="flex items-center gap-2 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all shadow-md"
             >
               <Plus size={16} /> Add Registration
@@ -207,21 +264,22 @@ export default function RegistrationPage() {
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           {[
-            { label: "Total", value: registrations.length, color: "slate" },
-            { label: "Pending", value: pending, color: "rose" },
-            { label: "Received", value: received, color: "emerald" },
+            { label: "Total Registrations", value: registrations.length, color: "slate" },
+            { label: "Pending Papers", value: pending, color: "rose" },
+            { label: "Completed Papers", value: received, color: "emerald" },
+            { label: "Registration Profit", value: money(totalRegProfit), color: "teal" },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 text-center">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
-              <p className={`text-3xl font-black mt-1 text-${s.color}-600`}>{s.value}</p>
+              <p className={`text-2xl font-black mt-1 text-${s.color}-600`}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Search */}
+        {/* Search Bar */}
         <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <Search size={18} className="text-slate-400" />
           <input
@@ -234,7 +292,7 @@ export default function RegistrationPage() {
           {search && <button onClick={() => setSearch("")} className="text-slate-300 hover:text-slate-500"><X size={16} /></button>}
         </div>
 
-        {/* List */}
+        {/* Registration Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Registration Records ({filtered.length})</h2>
@@ -251,47 +309,70 @@ export default function RegistrationPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {["#", "Bike", "Chasis No", "Reg No", "Agent", "Total Fee", "Advance", "Date", "Status", "Actions"].map(h => (
+                    {["#", "Bike", "Chasis No", "Reg No", "Agent", "Agent Fee", "Customer Fee", "Profit", "Advance", "Date", "Status", "Actions"].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((item, i) => (
-                    <tr key={item.id} className={`border-b border-slate-100 transition-colors ${!item.paperReceived ? "bg-rose-50/40 hover:bg-rose-50" : "hover:bg-slate-50"}`}>
-                      <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{item.bikeCompany} {item.bikeModel}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.chasisNo || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.registrationNo || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.agentLetter || "—"}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{money(item.agentTotalMoney)}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{money(item.agentAdvance)}</td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.paperReceived ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                          {item.paperReceived ? "Received" : "Pending"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleTogglePaper(item.id)}
-                            className={`p-1.5 rounded-lg transition-all ${item.paperReceived ? "text-emerald-600 hover:bg-emerald-50" : "text-rose-500 hover:bg-rose-50"}`}
-                            title={item.paperReceived ? "Mark as Pending" : "Mark Paper Received"}
-                          >
-                            <Check size={14} />
-                          </button>
-                          <button
-                            onClick={() => downloadRegPDF(item)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                            title="Download PDF"
-                          >
-                            <FileDown size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map((item, i) => {
+                    const profit = Number(item.customerTotalMoney || 0) - Number(item.agentTotalMoney || 0);
+                    return (
+                      <tr key={item.id} className={`border-b border-slate-100 transition-colors ${!item.paperReceived ? "bg-rose-50/40 hover:bg-rose-50" : "hover:bg-slate-50"}`}>
+                        <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{item.bikeCompany} {item.bikeModel}</td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.chasisNo || "—"}</td>
+                        <td className="px-4 py-3 font-mono text-slate-700 whitespace-nowrap">{item.registrationNo || "AFR"}</td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.agentLetter || "—"}</td>
+                        <td className="px-4 py-3 font-semibold text-rose-700 whitespace-nowrap">{money(item.agentTotalMoney)}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{money(item.customerTotalMoney)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${profit >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                            {profit >= 0 ? "+" : ""}{money(profit)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{money(item.agentAdvance)}</td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.paperReceived ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                            {item.paperReceived ? "Received" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleTogglePaper(item.id)}
+                              className={`p-1.5 rounded-lg transition-all ${item.paperReceived ? "text-emerald-600 hover:bg-emerald-50" : "text-rose-500 hover:bg-rose-50"}`}
+                              title={item.paperReceived ? "Mark as Pending" : "Approve / Paper Received"}
+                            >
+                              <Check size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(item)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Edit Registration"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                              title="Delete Registration"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                            <button
+                              onClick={() => downloadRegPDF(item)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                              title="Download PDF"
+                            >
+                              <FileDown size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -299,80 +380,111 @@ export default function RegistrationPage() {
         </div>
       </main>
 
-      {/* Add Registration Modal */}
+      {/* Add / Edit Registration Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Add Registration</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
+              <h2 className="text-lg font-bold text-slate-900">{editingId ? "Edit Registration" : "Add Registration"}</h2>
+              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search By</label>
-                <select value={form.searchType} onChange={(e) => { setForm(f => ({ ...f, searchType: e.target.value, searchValue: "" })); setExistingBike(null); }}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900">
-                  <option value="chasisNo">Chasis No</option>
-                  <option value="registrationNo">Registration No</option>
-                </select>
-              </div>
+              {!editingId && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search By</label>
+                    <select value={form.searchType} onChange={(e) => { setForm(f => ({ ...f, searchType: e.target.value, searchValue: "" })); setExistingBike(null); }}
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                      <option value="chasisNo">Chasis No</option>
+                      <option value="registrationNo">Registration No</option>
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  {form.searchType === "chasisNo" ? "Chasis Number" : "Registration Number"}
-                </label>
-                <div className="flex gap-2">
-                  <input type="text" value={form.searchValue}
-                    onChange={(e) => setForm(f => ({ ...f, searchValue: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchBike())}
-                    placeholder={`Enter ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}`}
-                    className="flex-1 px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
-                  <button type="button" onClick={handleSearchBike} disabled={searching}
-                    className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5">
-                    {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                    Search
-                  </button>
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      {form.searchType === "chasisNo" ? "Chasis Number" : "Registration Number"}
+                    </label>
+                    <div className="flex gap-2">
+                      <input type="text" value={form.searchValue}
+                        onChange={(e) => setForm(f => ({ ...f, searchValue: e.target.value }))}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchBike())}
+                        placeholder={`Enter ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}`}
+                        className="flex-1 px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                      <button type="button" onClick={handleSearchBike} disabled={searching}
+                        className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5">
+                        {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                        Search
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {existingBike && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <p className="text-xs font-bold text-emerald-700 mb-1">✓ Bike Found in Purchases</p>
+                  <p className="text-xs font-bold text-emerald-700 mb-1">✓ Linked Bike Purchase</p>
                   <p className="text-sm font-semibold text-emerald-900">{existingBike.bikeCompany} {existingBike.bikeModel}</p>
-                  <p className="text-xs text-emerald-700">Chasis: {existingBike.chasisNo || "—"} | Reg: {existingBike.registrationNo || "—"}</p>
+                  <p className="text-xs text-emerald-700">Chasis: {existingBike.chasisNo || "—"} | Reg: {form.registrationNo || existingBike.registrationNo || "AFR"}</p>
                 </div>
               )}
 
               {existingBike && (
                 <>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent / Letter Given</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Registration Number</label>
+                    <input type="text" value={form.registrationNo} onChange={(e) => setForm(f => ({ ...f, registrationNo: e.target.value }))}
+                      placeholder="e.g. KHI-1234 (Leave blank or AFR if pending)"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                    <p className="text-[11px] text-slate-400 mt-1">Entering a number here replaces AFR on the purchase record once approved.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent / Letter Reference</label>
                     <input type="text" value={form.agentLetter} onChange={(e) => setForm(f => ({ ...f, agentLetter: e.target.value }))}
                       placeholder="Agent name or letter reference" required
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                   </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Total (Rs.)</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Fee / Cost (Rs.)</label>
                       <input type="number" value={form.agentTotalMoney} onChange={(e) => setForm(f => ({ ...f, agentTotalMoney: e.target.value }))}
-                        placeholder="Total fee" required
+                        placeholder="e.g. 8500" required
                         className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Advance (Rs.)</label>
-                      <input type="number" value={form.agentAdvance} onChange={(e) => setForm(f => ({ ...f, agentAdvance: e.target.value }))}
-                        placeholder="Advance paid" required
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Customer Charge (Rs.)</label>
+                      <input type="number" value={form.customerTotalMoney} onChange={(e) => setForm(f => ({ ...f, customerTotalMoney: e.target.value }))}
+                        placeholder="e.g. 9000" required
                         className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                   </div>
+
+                  {form.agentTotalMoney !== "" && form.customerTotalMoney !== "" && (
+                    <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-600">Calculated Showroom Profit:</span>
+                      <span className={`px-2 py-1 rounded-md ${Number(form.customerTotalMoney) - Number(form.agentTotalMoney) >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                        {money(Number(form.customerTotalMoney) - Number(form.agentTotalMoney))}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Advance Paid (Rs.)</label>
+                    <input type="number" value={form.agentAdvance} onChange={(e) => setForm(f => ({ ...f, agentAdvance: e.target.value }))}
+                      placeholder="Advance paid to agent" required
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Registration Date &amp; Time</label>
                     <input type="datetime-local" value={form.registrationDateTime} onChange={(e) => setForm(f => ({ ...f, registrationDateTime: e.target.value }))}
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                   </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Notes / Description</label>
                     <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
@@ -390,11 +502,11 @@ export default function RegistrationPage() {
                 {existingBike && (
                   <button type="submit" disabled={submitting}
                     className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-bold py-3 rounded-xl hover:bg-slate-700 disabled:opacity-50">
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                    Save Registration
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : (editingId ? <Pencil size={16} /> : <Plus size={16} />)}
+                    {editingId ? "Update Registration" : "Save Registration"}
                   </button>
                 )}
-                <button type="button" onClick={() => setShowForm(false)}
+                <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }}
                   className="flex-1 bg-slate-100 text-slate-600 text-sm font-bold py-3 rounded-xl hover:bg-slate-200">
                   Cancel
                 </button>
@@ -406,3 +518,4 @@ export default function RegistrationPage() {
     </div>
   );
 }
+
