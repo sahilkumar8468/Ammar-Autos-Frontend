@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   RefreshCw,
   TrendingUp,
-  DollarSign,
+  Banknote,
   Package,
   ShoppingCart,
   Calendar,
@@ -15,6 +15,8 @@ import {
   FileText,
   AlertCircle
 } from "lucide-react";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -241,7 +243,7 @@ export default function EarningDashboard() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Bikes Sold</span>
               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                <DollarSign size={22} />
+                <Banknote size={22} />
               </div>
             </div>
             <div className="text-3xl font-black text-slate-900 tracking-tight mb-1">
@@ -520,6 +522,8 @@ export default function EarningDashboard() {
           </div>
         </div>
       </main>
+      <Footer />
+      <MobileBottomNav />
     </div>
   );
 }

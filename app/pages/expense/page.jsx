@@ -8,7 +8,7 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  Banknote,
   ShoppingCart,
   Calendar as CalendarIcon,
   Search,
@@ -29,6 +29,8 @@ import {
   AlertCircle
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -73,6 +75,12 @@ const formatTime = (val) => {
   const d = new Date(val);
   if (isNaN(d)) return "";
   return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
+};
+
+const safeISOString = (val) => {
+  if (!val) return new Date().toISOString().slice(0, 10);
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
 };
 
 const emptyExpenseForm = {
@@ -300,7 +308,7 @@ export default function ExpenseDashboard() {
       amount: item.amount || "",
       transactionType: item.transactionType || (item.type === "manual_income" ? "income" : "expense"),
       category: item.category || "General",
-      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : item.date ? new Date(item.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      expenseDate: safeISOString(item.expenseDate || item.date || item.purchaseDateTime || item.createdAt),
       description: item.description || ""
     });
     setFormError("");
@@ -315,7 +323,7 @@ export default function ExpenseDashboard() {
       amount: item.amount || "",
       transactionType: item.transactionType || (item.type === "manual_income" ? "income" : "expense"),
       category: item.category || "General",
-      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : item.date ? new Date(item.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      expenseDate: safeISOString(item.expenseDate || item.date || item.purchaseDateTime || item.createdAt),
       description: item.description || ""
     });
     setFormError("");
@@ -1237,6 +1245,9 @@ export default function ExpenseDashboard() {
           )}
         </div>
       </main>
+
+      <Footer />
+      <MobileBottomNav />
 
       {/* FULL ADD / EDIT / VIEW MODAL */}
       {showModal && (

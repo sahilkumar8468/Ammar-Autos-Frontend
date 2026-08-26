@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, DollarSign, Loader2, RefreshCw, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Package, Banknote, Loader2, RefreshCw, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { downloadInventoryPDF } from "@/app/lib/pdfUtils";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 const PAGE_SIZE = 10;
@@ -176,6 +178,8 @@ export default function InventoryDashboard() {
           )}
         </div>
       </main>
+      <Footer />
+      <MobileBottomNav />
     </div>
   );
 }

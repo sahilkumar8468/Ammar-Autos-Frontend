@@ -6,6 +6,8 @@ import { Users, Building2, UserCheck, ArrowLeft } from "lucide-react";
 import CompanyPurchase from "./CompanyPurchase";
 import DealerPurchase from "./DealerPurchase";
 import LocalPurchase from "./LocalPurchase";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const purchaseCategories = [
   {
@@ -90,6 +92,8 @@ export default function PurchaseDashboard() {
           ))}
         </div>
       </main>
+      <Footer />
+      <MobileBottomNav />
     </div>
   );
 }

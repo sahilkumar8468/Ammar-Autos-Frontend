@@ -8,6 +8,8 @@ import {
   Eye, Calendar, CheckCircle2, AlertCircle, RotateCcw
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -858,6 +860,9 @@ export default function SaleList() {
           </p>
         )}
       </main>
+
+      <Footer />
+      <MobileBottomNav />
 
       {/* Unified Add / Edit / View (Readonly) Modal Form */}
       {showForm && (

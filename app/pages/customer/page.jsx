@@ -3,10 +3,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Search, DollarSign, Loader2, RefreshCw,
+  ArrowLeft, Search, Banknote, Loader2, RefreshCw,
   AlertCircle, PhoneCall, FileDown, CalendarClock, Bell, X, CheckCircle2
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
+import MobileBottomNav from "@/app/components/MobileBottomNav";
+import Footer from "@/app/components/Footer";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -171,7 +173,7 @@ export default function PaymentDashboard() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
-              <DollarSign size={20} />
+              <Banknote size={20} />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">Ammar Autos</h1>
@@ -420,6 +422,9 @@ export default function PaymentDashboard() {
           )}
         </div>
       </main>
+
+      <Footer />
+      <MobileBottomNav />
 
       {/* ── PAY MODAL ── */}
       {selectedCustomer && (
