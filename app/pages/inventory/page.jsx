@@ -81,14 +81,14 @@ export default function InventoryDashboard() {
             </div>
           </div>
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={28} /></div>
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><Banknote size={28} /></div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Inventory Value</p>
               <p className="text-2xl font-bold text-emerald-700 mt-1">Rs. {Number(summary.totalPurchaseValue || 0).toLocaleString()}</p>
             </div>
           </div>
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl"><DollarSign size={28} /></div>
+            <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl"><Banknote size={28} /></div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Remaining Payment</p>
               <p className="text-2xl font-bold text-rose-600 mt-1">Rs. {Number(summary.remainingBalance || 0).toLocaleString()}</p>

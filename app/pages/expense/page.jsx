@@ -714,7 +714,7 @@ export default function ExpenseDashboard() {
                 Bikes Sold (Revenue)
               </span>
               <div className="p-2 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                <DollarSign size={18} />
+                <Banknote size={18} />
               </div>
             </div>
             <div className="mt-4">
@@ -884,7 +884,7 @@ export default function ExpenseDashboard() {
                 { id: "ledger", label: "Daily General Ledger", count: filteredLedger.length, icon: <Layers size={14} /> },
                 { id: "expenses", label: "General Expenses", count: filteredExpenses.length, icon: <Receipt size={14} /> },
                 { id: "purchases", label: "Bike Purchases", count: filteredPurchases.length, icon: <ShoppingCart size={14} /> },
-                { id: "sales", label: "Bike Sales & Profit", count: filteredSales.length, icon: <DollarSign size={14} /> },
+                { id: "sales", label: "Bike Sales & Profit", count: filteredSales.length, icon: <Banknote size={14} /> },
               ].map((tab) => (
                 <button
                   key={tab.id}

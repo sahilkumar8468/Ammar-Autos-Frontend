@@ -309,7 +309,7 @@ export default function PaymentDashboard() {
             <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-slate-400" /></div>
           ) : filtered.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-              <DollarSign size={40} className="mx-auto text-slate-300 mb-3" />
+              <Banknote size={40} className="mx-auto text-slate-300 mb-3" />
               <p className="text-sm font-semibold text-slate-500">No installment customers found.</p>
             </div>
           ) : (
