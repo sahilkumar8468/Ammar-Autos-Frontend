@@ -527,12 +527,50 @@ export default function ExpenseDashboard() {
         </div>
 
         {/* HERO LEDGER SUMMARY CARDS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* NET DAY-END CASHFLOW HERO CARD */}
-          <div className={`col-span-1 md:col-span-2 lg:col-span-2 p-6 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all ${
-            isNetCashPositive
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          {/* NET SHOWROOM PROFIT HERO CARD */}
+          <div className={`col-span-1 md:col-span-2 lg:col-span-3 p-6 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all ${
+            (summary.netProfit || 0) >= 0
               ? "bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white border-emerald-700/60 shadow-emerald-950/10"
               : "bg-gradient-to-br from-rose-900 via-rose-800 to-slate-900 text-white border-rose-700/60 shadow-rose-950/10"
+          }`}>
+            <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-xl backdrop-blur-md ${(summary.netProfit || 0) >= 0 ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
+                  {(summary.netProfit || 0) >= 0 ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/80">
+                    Net Showroom Profit
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-semibold">{currentRangeLabel}</p>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider backdrop-blur-md ${
+                (summary.netProfit || 0) >= 0 ? "bg-emerald-400/20 text-emerald-200 border border-emerald-400/30" : "bg-rose-400/20 text-rose-200 border border-rose-400/30"
+              }`}>
+                {(summary.netProfit || 0) >= 0 ? "Profitable +" : "Deficit -"}
+              </span>
+            </div>
+
+            <div className="mt-6">
+              <div className="text-3xl lg:text-4xl font-black tracking-tight drop-shadow-xs">
+                {money(summary.netProfit)}
+              </div>
+              <div className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-slate-200">
+                <span>Bike Profit: <strong className="text-emerald-300 font-bold">+{money(summary.totalBikeGrossProfit ?? summary.totalGrossProfit)}</strong></span>
+                <span>Expenses: <strong className="text-rose-300 font-bold">-{money(summary.totalGeneralExpenses)}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* NET DAY-END CASHFLOW HERO CARD */}
+          <div className={`col-span-1 md:col-span-2 lg:col-span-3 p-6 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all ${
+            isNetCashPositive
+              ? "bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border-slate-700/60 shadow-slate-950/10"
+              : "bg-gradient-to-br from-slate-900 via-slate-800 to-rose-950 text-white border-slate-700/60 shadow-slate-950/10"
           }`}>
             <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
 
@@ -542,10 +580,10 @@ export default function ExpenseDashboard() {
                   {isNetCashPositive ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/80">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">
                     Day-End Cash Balance
                   </h3>
-                  <p className="text-[11px] text-slate-300 font-semibold">{currentRangeLabel}</p>
+                  <p className="text-[11px] text-slate-400 font-semibold">{currentRangeLabel}</p>
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider backdrop-blur-md ${
@@ -565,12 +603,55 @@ export default function ExpenseDashboard() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* BIKES PURCHASED OUTFLOW */}
+        {/* METRICS SUB-GRID: BIKE PROFIT, SALES, PURCHASES, EXPENSES */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* GROSS BIKE PROFIT CARD */}
+          <div className="p-5 bg-white rounded-3xl border border-emerald-200/90 shadow-xs flex flex-col justify-between hover:border-emerald-400 transition-all group bg-gradient-to-br from-emerald-50/40 to-white">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-700">
+                Gross Bike Profit
+              </span>
+              <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                <TrendingUp size={18} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-emerald-700 tracking-tight">
+                +{money(summary.totalBikeGrossProfit ?? summary.totalGrossProfit)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                {summary.salesCount} bike(s) sold in period
+              </p>
+            </div>
+          </div>
+
+          {/* BIKES SOLD REVENUE */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-blue-300 transition-all group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
+                Bikes Sold (Revenue)
+              </span>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                <DollarSign size={18} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-slate-900 tracking-tight">
+                +{money(summary.totalBikeSalesRevenue)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                {summary.salesCount} sale transaction(s)
+              </p>
+            </div>
+          </div>
+
+          {/* BIKES PURCHASED COST */}
           <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-amber-300 transition-all group">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-amber-600 transition-colors">
-                Bikes Purchased
+                Bikes Purchased (Cost)
               </span>
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all">
                 <ShoppingCart size={18} />
@@ -582,26 +663,6 @@ export default function ExpenseDashboard() {
               </div>
               <p className="text-[11px] text-slate-400 font-bold mt-1">
                 {summary.purchasesCount} bike(s) purchased
-              </p>
-            </div>
-          </div>
-
-          {/* BIKES SOLD INFLOW */}
-          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-emerald-300 transition-all group">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-emerald-600 transition-colors">
-                Bikes Sold
-              </span>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                <TrendingUp size={18} />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl font-black text-emerald-700 tracking-tight">
-                +{money(summary.totalBikeSalesRevenue)}
-              </div>
-              <p className="text-[11px] text-slate-400 font-bold mt-1">
-                {summary.salesCount} bike(s) sold
               </p>
             </div>
           </div>
@@ -845,6 +906,18 @@ export default function ExpenseDashboard() {
                               {item.description && <div className="text-[11px] text-slate-500 font-normal mt-0.5">{item.description}</div>}
                               {item.buyerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Buyer: <strong>{item.buyerName}</strong></div>}
                               {item.customerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Seller/Customer: <strong>{item.customerName}</strong></div>}
+                              {item.type === "bike_sale" && (
+                                <div className="mt-1 flex items-center gap-2">
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-200">
+                                    Gross Bike Profit: +{money(item.profit)}
+                                  </span>
+                                  {item.cost > 0 && (
+                                    <span className="text-[10px] text-slate-400 font-semibold">
+                                      (Cost: {money(item.cost)})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-right font-black text-emerald-700 whitespace-nowrap">
                               {isInflow ? `+ ${money(item.inflow)}` : "—"}
