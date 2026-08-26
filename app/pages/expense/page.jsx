@@ -173,15 +173,18 @@ export default function ExpenseDashboard() {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
-  // Lock body scroll when modal is open
+  // Lock body & documentElement scroll when modal is open
   useEffect(() => {
     if (showModal) {
       document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
     }
     return () => {
       document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
     };
   }, [showModal]);
 
@@ -1142,8 +1145,13 @@ export default function ExpenseDashboard() {
 
       {/* FULL ADD / EDIT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowModal(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain border border-slate-200">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-slate-900 text-white rounded-2xl">
