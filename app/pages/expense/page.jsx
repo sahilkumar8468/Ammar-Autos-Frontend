@@ -16,6 +16,7 @@ import {
   FileDown,
   Trash2,
   Pencil,
+  Eye,
   X,
   Loader2,
   Receipt,
@@ -25,8 +26,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Layers,
-  Building2,
-  UserCheck
+  AlertCircle
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 
@@ -106,6 +106,7 @@ export default function ExpenseDashboard() {
       totalGeneralExpenses: 0,
       totalBikePurchasesCost: 0,
       totalBikeSalesRevenue: 0,
+      totalBikeGrossProfit: 0,
       totalOtherIncome: 0,
       totalInflow: 0,
       totalOutflow: 0,
@@ -126,6 +127,7 @@ export default function ExpenseDashboard() {
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -135,7 +137,7 @@ export default function ExpenseDashboard() {
   const [quickTitle, setQuickTitle] = useState("");
   const [quickAmount, setQuickAmount] = useState("");
   const [quickCategory, setQuickCategory] = useState("General");
-  const [quickType, setQuickType] = useState("expense"); // "expense" | "income"
+  const [quickType, setQuickType] = useState("expense");
   const [quickSubmitting, setQuickSubmitting] = useState(false);
 
   const fetchOverviewData = useCallback(async () => {
@@ -173,16 +175,30 @@ export default function ExpenseDashboard() {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
-  // Lock body & documentElement scroll when modal is open
+  // BULLETPROOF BACKGROUND SCROLL LOCK WHEN MODAL IS OPEN
   useEffect(() => {
     if (showModal) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
     } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || "0", 10) * -1);
+      }
     }
     return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
     };
@@ -238,6 +254,7 @@ export default function ExpenseDashboard() {
   // Handle Full Modal Submit
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
+    if (isViewOnly) return;
     setSubmitting(true);
     setFormError("");
     try {
@@ -254,6 +271,7 @@ export default function ExpenseDashboard() {
 
       setSuccessMsg(editId ? "Entry updated successfully!" : "Entry recorded successfully!");
       setShowModal(false);
+      setIsViewOnly(false);
       fetchOverviewData();
       setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err) {
@@ -265,6 +283,7 @@ export default function ExpenseDashboard() {
 
   const openAddExpense = () => {
     setEditId(null);
+    setIsViewOnly(false);
     setExpenseForm({
       ...emptyExpenseForm,
       expenseDate: range === "specificDate" ? selectedDate : new Date().toISOString().slice(0, 10)
@@ -275,12 +294,28 @@ export default function ExpenseDashboard() {
 
   const openEditExpense = (item) => {
     setEditId(item.id);
+    setIsViewOnly(false);
     setExpenseForm({
       title: item.title || "",
       amount: item.amount || "",
-      transactionType: item.transactionType || "expense",
+      transactionType: item.transactionType || (item.type === "manual_income" ? "income" : "expense"),
       category: item.category || "General",
-      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : item.date ? new Date(item.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      description: item.description || ""
+    });
+    setFormError("");
+    setShowModal(true);
+  };
+
+  const openViewExpense = (item) => {
+    setEditId(item.id);
+    setIsViewOnly(true);
+    setExpenseForm({
+      title: item.title || "",
+      amount: item.amount || "",
+      transactionType: item.transactionType || (item.type === "manual_income" ? "income" : "expense"),
+      category: item.category || "General",
+      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : item.date ? new Date(item.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       description: item.description || ""
     });
     setFormError("");
@@ -381,7 +416,7 @@ export default function ExpenseDashboard() {
           <div className="flex items-center gap-3.5">
             <button
               onClick={() => router.push("/dashboard")}
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 shadow-2xs"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 shadow-2xs cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft size={20} />
@@ -434,7 +469,7 @@ export default function ExpenseDashboard() {
               <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
               <span>{successMsg}</span>
             </div>
-            <button onClick={() => setSuccessMsg("")} className="text-emerald-700 hover:text-emerald-900">
+            <button onClick={() => setSuccessMsg("")} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
               <X size={16} />
             </button>
           </div>
@@ -512,7 +547,7 @@ export default function ExpenseDashboard() {
                 type="month"
                 value={monthStr}
                 onChange={(e) => setMonthStr(e.target.value)}
-                className="px-3.5 py-2 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
+                className="px-3.5 py-2 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800 cursor-pointer"
               />
             </div>
           )}
@@ -525,7 +560,7 @@ export default function ExpenseDashboard() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800 cursor-pointer"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -534,7 +569,7 @@ export default function ExpenseDashboard() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800"
+                  className="px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-800 cursor-pointer"
                 />
               </div>
             </div>
@@ -719,7 +754,7 @@ export default function ExpenseDashboard() {
               <button
                 type="button"
                 onClick={() => setQuickType("expense")}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
                   quickType === "expense" ? "bg-rose-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -728,7 +763,7 @@ export default function ExpenseDashboard() {
               <button
                 type="button"
                 onClick={() => setQuickType("income")}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
                   quickType === "income" ? "bg-emerald-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -873,12 +908,13 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4 text-right">Inflow (+)</th>
                       <th className="py-3.5 px-4 text-right">Outflow (-)</th>
                       <th className="py-3.5 px-4 text-right">Net Impact</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
                     {filteredLedger.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
+                        <td colSpan={8} className="text-center py-16 text-slate-400 font-semibold">
                           No transactions found for this period.
                         </td>
                       </tr>
@@ -886,6 +922,7 @@ export default function ExpenseDashboard() {
                       filteredLedger.map((item, i) => {
                         const isInflow = Number(item.inflow || 0) > 0;
                         const isOutflow = Number(item.outflow || 0) > 0;
+                        const isManual = item.type === "manual_expense" || item.type === "manual_income";
                         return (
                           <tr key={`${item.type}-${item.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
@@ -955,6 +992,35 @@ export default function ExpenseDashboard() {
                                 </span>
                               )}
                             </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => openViewExpense(item)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                  title="View Details"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                {isManual && (
+                                  <>
+                                    <button
+                                      onClick={() => openEditExpense(item)}
+                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                                      title="Edit Record"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteExpense(item.id)}
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                      title="Delete Record"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         );
                       })
@@ -978,6 +1044,7 @@ export default function ExpenseDashboard() {
                             {ledgerNetBalance >= 0 ? "+" : ""}{money(ledgerNetBalance)}
                           </span>
                         </td>
+                        <td className="py-4 px-4"></td>
                       </tr>
                     </tfoot>
                   )}
@@ -1025,6 +1092,13 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                onClick={() => openViewExpense(item)}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                title="View Details"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button
                                 onClick={() => openEditExpense(item)}
                                 className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
                                 title="Edit Expense"
@@ -1059,12 +1133,13 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4">Chasis No</th>
                       <th className="py-3.5 px-4">Seller Name</th>
                       <th className="py-3.5 px-4 text-right">Purchase Outflow (Rs.)</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
                     {filteredPurchases.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
+                        <td colSpan={8} className="text-center py-16 text-slate-400 font-semibold">
                           No bike purchases recorded on this date.
                         </td>
                       </tr>
@@ -1083,6 +1158,15 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 text-slate-700 font-medium">{item.customerName || "—"}</td>
                           <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap text-sm">
                             - {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              onClick={() => openViewExpense(item)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                              title="View Purchase Record"
+                            >
+                              <Eye size={14} />
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1104,12 +1188,13 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4 text-right">Sale Inflow (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Gross Profit (Rs.)</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
                     {filteredSales.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center py-16 text-slate-400 font-semibold">
+                        <td colSpan={9} className="text-center py-16 text-slate-400 font-semibold">
                           No bike sales recorded on this date.
                         </td>
                       </tr>
@@ -1132,6 +1217,15 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 text-right font-black text-teal-700 whitespace-nowrap text-sm">
                             +{money(item.profit)}
                           </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              onClick={() => openViewExpense(item)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                              title="View Sale Record"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -1143,7 +1237,7 @@ export default function ExpenseDashboard() {
         </div>
       </main>
 
-      {/* FULL ADD / EDIT MODAL */}
+      {/* FULL ADD / EDIT / VIEW MODAL */}
       {showModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150 overscroll-contain"
@@ -1155,13 +1249,15 @@ export default function ExpenseDashboard() {
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-slate-900 text-white rounded-2xl">
-                  <Receipt size={22} />
+                  {isViewOnly ? <Eye size={22} /> : <Receipt size={22} />}
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-slate-900">
-                    {editId ? "Edit Ledger Entry" : "Record Ledger Entry"}
+                    {isViewOnly ? "View Ledger Entry Details" : (editId ? "Edit Ledger Entry" : "Record Ledger Entry")}
                   </h2>
-                  <p className="text-xs text-slate-500 font-semibold">Enter expense or income details</p>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    {isViewOnly ? "Read-only transaction details" : "Enter expense or income details"}
+                  </p>
                 </div>
               </div>
               <button
@@ -1181,8 +1277,9 @@ export default function ExpenseDashboard() {
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => setExpenseForm({ ...expenseForm, transactionType: "expense" })}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer disabled:cursor-not-allowed ${
                       expenseForm.transactionType !== "income"
                         ? "bg-rose-600 text-white shadow-2xs"
                         : "text-slate-600 hover:text-slate-900"
@@ -1192,8 +1289,9 @@ export default function ExpenseDashboard() {
                   </button>
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => setExpenseForm({ ...expenseForm, transactionType: "income" })}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer disabled:cursor-not-allowed ${
                       expenseForm.transactionType === "income"
                         ? "bg-emerald-600 text-white shadow-2xs"
                         : "text-slate-600 hover:text-slate-900"
@@ -1211,10 +1309,11 @@ export default function ExpenseDashboard() {
                 <input
                   type="text"
                   required
+                  disabled={isViewOnly}
                   placeholder="e.g. Employee Daily Wage, Chai Expense, Bike Spare Parts"
                   value={expenseForm.title}
                   onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
+                  className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
                 />
               </div>
 
@@ -1227,10 +1326,11 @@ export default function ExpenseDashboard() {
                     type="number"
                     required
                     min="1"
+                    disabled={isViewOnly}
                     placeholder="e.g. 500"
                     value={expenseForm.amount}
                     onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                    className="w-full px-4 py-3 text-sm font-black border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
+                    className="w-full px-4 py-3 text-sm font-black border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
                   />
                 </div>
 
@@ -1240,8 +1340,9 @@ export default function ExpenseDashboard() {
                   </label>
                   <select
                     value={expenseForm.category}
+                    disabled={isViewOnly}
                     onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
+                    className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer disabled:bg-slate-100 disabled:text-slate-600"
                   >
                     {EXPENSE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -1257,9 +1358,10 @@ export default function ExpenseDashboard() {
                 <input
                   type="date"
                   required
+                  disabled={isViewOnly}
                   value={expenseForm.expenseDate}
                   onChange={(e) => setExpenseForm({ ...expenseForm, expenseDate: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 cursor-pointer"
+                  className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 cursor-pointer disabled:bg-slate-100 disabled:text-slate-600"
                 />
               </div>
 
@@ -1269,10 +1371,11 @@ export default function ExpenseDashboard() {
                 </label>
                 <textarea
                   rows={2}
+                  disabled={isViewOnly}
                   placeholder="Additional details about this entry..."
                   value={expenseForm.description}
                   onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-medium border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 resize-none"
+                  className="w-full px-4 py-3 text-sm font-medium border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 resize-none disabled:bg-slate-100 disabled:text-slate-600"
                 />
               </div>
 
@@ -1284,20 +1387,22 @@ export default function ExpenseDashboard() {
               )}
 
               <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3.5 rounded-2xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
-                >
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  <span>{submitting ? "Saving..." : editId ? "Update Entry" : "Save Entry"}</span>
-                </button>
+                {!isViewOnly && (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3.5 rounded-2xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                  >
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    <span>{submitting ? "Saving..." : editId ? "Update Entry" : "Save Entry"}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 text-sm font-bold py-3.5 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
                 >
-                  Cancel
+                  {isViewOnly ? "Close" : "Cancel"}
                 </button>
               </div>
             </form>
