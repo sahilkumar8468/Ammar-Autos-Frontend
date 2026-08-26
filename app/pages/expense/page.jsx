@@ -895,10 +895,10 @@ export default function ExpenseDashboard() {
               <p className="text-xs font-bold tracking-wide uppercase text-slate-400">Loading daily ledger...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative">
               {/* TAB 1: DAILY GENERAL LEDGER */}
               {activeTab === "ledger" && (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                       <th className="py-3.5 px-4 w-12">#</th>
@@ -908,7 +908,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4 text-right">Inflow (+)</th>
                       <th className="py-3.5 px-4 text-right">Outflow (-)</th>
                       <th className="py-3.5 px-4 text-right">Net Impact</th>
-                      <th className="py-3.5 px-4 text-center">Actions</th>
+                      <th className="py-3.5 px-4 text-center sticky right-0 bg-slate-100 z-10 shadow-xs border-l border-slate-200 w-36">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
@@ -992,30 +992,31 @@ export default function ExpenseDashboard() {
                                 </span>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            {/* STICKY HIGH-CONTRAST ACTIONS COLUMN */}
+                            <td className="py-3.5 px-4 text-center sticky right-0 bg-white group-hover:bg-slate-50 z-10 border-l border-slate-200/80 shadow-xs">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   onClick={() => openViewExpense(item)}
-                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
                                   title="View Details"
                                 >
-                                  <Eye size={14} />
+                                  <Eye size={13} /> View
                                 </button>
                                 {isManual && (
                                   <>
                                     <button
                                       onClick={() => openEditExpense(item)}
-                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
-                                      title="Edit Record"
+                                      className="p-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg transition-all cursor-pointer"
+                                      title="Edit Entry"
                                     >
-                                      <Pencil size={14} />
+                                      <Pencil size={13} />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteExpense(item.id)}
-                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                                      title="Delete Record"
+                                      className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 rounded-lg transition-all cursor-pointer"
+                                      title="Delete Entry"
                                     >
-                                      <Trash2 size={14} />
+                                      <Trash2 size={13} />
                                     </button>
                                   </>
                                 )}
@@ -1044,7 +1045,7 @@ export default function ExpenseDashboard() {
                             {ledgerNetBalance >= 0 ? "+" : ""}{money(ledgerNetBalance)}
                           </span>
                         </td>
-                        <td className="py-4 px-4"></td>
+                        <td className="py-4 px-4 sticky right-0 bg-slate-900 border-l border-slate-800"></td>
                       </tr>
                     </tfoot>
                   )}
@@ -1053,7 +1054,7 @@ export default function ExpenseDashboard() {
 
               {/* TAB 2: GENERAL EXPENSES */}
               {activeTab === "expenses" && (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                       <th className="py-3.5 px-4 w-12">#</th>
@@ -1062,7 +1063,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4">Category</th>
                       <th className="py-3.5 px-4 text-right">Amount (Rs.)</th>
                       <th className="py-3.5 px-4">Description</th>
-                      <th className="py-3.5 px-4 text-center">Actions</th>
+                      <th className="py-3.5 px-4 text-center sticky right-0 bg-slate-100 z-10 border-l border-slate-200 w-36">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
@@ -1089,28 +1090,28 @@ export default function ExpenseDashboard() {
                             {money(item.amount)}
                           </td>
                           <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{item.description || "—"}</td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3.5 px-4 text-center sticky right-0 bg-white z-10 border-l border-slate-200/80 shadow-xs">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => openViewExpense(item)}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
                                 title="View Details"
                               >
-                                <Eye size={14} />
+                                <Eye size={13} /> View
                               </button>
                               <button
                                 onClick={() => openEditExpense(item)}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                                className="p-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg transition-all cursor-pointer"
                                 title="Edit Expense"
                               >
-                                <Pencil size={14} />
+                                <Pencil size={13} />
                               </button>
                               <button
                                 onClick={() => handleDeleteExpense(item.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 rounded-lg transition-all cursor-pointer"
                                 title="Delete Expense"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={13} />
                               </button>
                             </div>
                           </td>
@@ -1123,7 +1124,7 @@ export default function ExpenseDashboard() {
 
               {/* TAB 3: BIKE PURCHASES */}
               {activeTab === "purchases" && (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                       <th className="py-3.5 px-4 w-12">#</th>
@@ -1133,7 +1134,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4">Chasis No</th>
                       <th className="py-3.5 px-4">Seller Name</th>
                       <th className="py-3.5 px-4 text-right">Purchase Outflow (Rs.)</th>
-                      <th className="py-3.5 px-4 text-center">Actions</th>
+                      <th className="py-3.5 px-4 text-center sticky right-0 bg-slate-100 z-10 border-l border-slate-200 w-28">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
@@ -1159,13 +1160,13 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap text-sm">
                             - {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3.5 px-4 text-center sticky right-0 bg-white z-10 border-l border-slate-200/80 shadow-xs">
                             <button
                               onClick={() => openViewExpense(item)}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 mx-auto"
                               title="View Purchase Record"
                             >
-                              <Eye size={14} />
+                              <Eye size={13} /> View
                             </button>
                           </td>
                         </tr>
@@ -1177,7 +1178,7 @@ export default function ExpenseDashboard() {
 
               {/* TAB 4: BIKE SALES & PROFIT */}
               {activeTab === "sales" && (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                       <th className="py-3.5 px-4 w-12">#</th>
@@ -1188,7 +1189,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4 text-right">Sale Inflow (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Gross Profit (Rs.)</th>
-                      <th className="py-3.5 px-4 text-center">Actions</th>
+                      <th className="py-3.5 px-4 text-center sticky right-0 bg-slate-100 z-10 border-l border-slate-200 w-28">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
@@ -1217,13 +1218,13 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 text-right font-black text-teal-700 whitespace-nowrap text-sm">
                             +{money(item.profit)}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3.5 px-4 text-center sticky right-0 bg-white z-10 border-l border-slate-200/80 shadow-xs">
                             <button
                               onClick={() => openViewExpense(item)}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 mx-auto"
                               title="View Sale Record"
                             >
-                              <Eye size={14} />
+                              <Eye size={13} /> View
                             </button>
                           </td>
                         </tr>
