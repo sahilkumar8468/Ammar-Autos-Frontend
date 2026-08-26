@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -17,6 +17,26 @@ function fmtDate(v) {
 function downloadRegPDF(item) {
   const win = window.open("", "_blank", "width=860,height=700");
   const profit = Number(item.customerTotalMoney || 0) - Number(item.agentTotalMoney || 0);
+  const isExternal = item.registrationType === "external" || !item.bikeId;
+
+  const rows = [
+    ["Registration Type", isExternal ? "👤 3rd Party Customer Bike" : "🏢 Showroom Purchased Bike"],
+    ...(isExternal && item.customerName ? [["Customer / Owner Name", item.customerName]] : []),
+    ...(isExternal && item.customerPhone ? [["Customer Contact", item.customerPhone]] : []),
+    ["Bike Company", item.bikeCompany],
+    ["Bike Model", item.bikeModel],
+    ["Chasis No", item.chasisNo || "—"],
+    ...(isExternal && item.engineNo ? [["Engine No", item.engineNo]] : []),
+    ["Registration No", item.registrationNo || "AFR"],
+    ["Agent / Letter", item.agentLetter],
+    ["Agent Fee (Cost)", money(item.agentTotalMoney)],
+    ["Customer Fee (Charged)", money(item.customerTotalMoney)],
+    ["Showroom Profit", money(profit)],
+    ["Agent Advance Paid", money(item.agentAdvance)],
+    ["Description", item.description || "—"],
+    ["Submitted Date", fmtDate(item.createdAt)],
+  ];
+
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
   <title>Registration — ${item.bikeCompany} ${item.bikeModel}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -29,7 +49,9 @@ function downloadRegPDF(item) {
     <div>
       <div style="font-size:22px;font-weight:800;">🏍️ Ammar Autos</div>
       <div style="font-size:11px;opacity:.7;margin-top:4px;">Bike Showroom Management</div>
-      <div style="margin-top:8px;display:inline-block;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;">Registration Record</div>
+      <div style="margin-top:8px;display:inline-block;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;">
+        ${isExternal ? "3rd Party Registration" : "Showroom Bike Registration"}
+      </div>
     </div>
     <div style="text-align:right;">
       <div style="font-size:10px;opacity:.7;">Status</div>
@@ -37,19 +59,7 @@ function downloadRegPDF(item) {
     </div>
   </div>
   <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-    ${[
-      ["Bike Company", item.bikeCompany],
-      ["Bike Model", item.bikeModel],
-      ["Chasis No", item.chasisNo],
-      ["Registration No", item.registrationNo || "AFR"],
-      ["Agent / Letter", item.agentLetter],
-      ["Agent Fee (Cost)", money(item.agentTotalMoney)],
-      ["Customer Fee (Charged)", money(item.customerTotalMoney)],
-      ["Showroom Profit", money(profit)],
-      ["Agent Advance Paid", money(item.agentAdvance)],
-      ["Description", item.description || "—"],
-      ["Submitted Date", fmtDate(item.createdAt)],
-    ].map(([l, v]) => `<tr style="border-bottom:1px solid #f1f5f9;">
+    ${rows.map(([l, v]) => `<tr style="border-bottom:1px solid #f1f5f9;">
       <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;width:40%;">${l}</td>
       <td style="padding:10px 14px;font-size:12px;color:#1e293b;font-weight:500;">${v || "—"}</td>
     </tr>`).join("")}
@@ -62,8 +72,15 @@ function downloadRegPDF(item) {
 }
 
 const emptyForm = {
+  registrationType: "showroom",
   searchType: "chasisNo",
   searchValue: "",
+  customerName: "",
+  customerPhone: "",
+  bikeCompany: "",
+  bikeModel: "",
+  chasisNo: "",
+  engineNo: "",
   registrationNo: "",
   registrationDateTime: "",
   agentLetter: "",
@@ -106,7 +123,9 @@ export default function RegistrationPage() {
       r.bikeModel?.toLowerCase().includes(q) ||
       r.chasisNo?.toLowerCase().includes(q) ||
       r.registrationNo?.toLowerCase().includes(q) ||
-      r.agentLetter?.toLowerCase().includes(q)
+      r.agentLetter?.toLowerCase().includes(q) ||
+      r.customerName?.toLowerCase().includes(q) ||
+      r.customerPhone?.toLowerCase().includes(q)
     );
   }, [registrations, search]);
 
@@ -132,17 +151,29 @@ export default function RegistrationPage() {
   };
 
   const handleOpenEdit = (item) => {
+    const isExt = item.registrationType === "external" || !item.bikeId;
     setEditingId(item.id);
-    setExistingBike({
-      id: item.bikeId,
-      bikeCompany: item.bikeCompany,
-      bikeModel: item.bikeModel,
-      chasisNo: item.chasisNo,
-      registrationNo: item.registrationNo
-    });
+    if (!isExt) {
+      setExistingBike({
+        id: item.bikeId,
+        bikeCompany: item.bikeCompany,
+        bikeModel: item.bikeModel,
+        chasisNo: item.chasisNo,
+        registrationNo: item.registrationNo
+      });
+    } else {
+      setExistingBike(null);
+    }
     setForm({
+      registrationType: isExt ? "external" : "showroom",
       searchType: item.searchType || "chasisNo",
       searchValue: item.searchValue || item.chasisNo || "",
+      customerName: item.customerName || "",
+      customerPhone: item.customerPhone || "",
+      bikeCompany: item.bikeCompany || "",
+      bikeModel: item.bikeModel || "",
+      chasisNo: item.chasisNo || "",
+      engineNo: item.engineNo || "",
       registrationNo: item.registrationNo || "",
       registrationDateTime: item.registrationDateTime ? new Date(item.registrationDateTime).toISOString().slice(0, 16) : "",
       agentLetter: item.agentLetter || "",
@@ -172,25 +203,55 @@ export default function RegistrationPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!existingBike) return;
     setSubmitting(true);
     setFormError("");
     try {
-      const payload = {
-        searchType: form.searchType,
-        searchValue: form.searchValue,
-        bikeId: existingBike.id,
-        bikeCompany: existingBike.bikeCompany || "",
-        bikeModel: existingBike.bikeModel || "",
-        chasisNo: existingBike.chasisNo || "",
-        registrationNo: form.registrationNo || existingBike.registrationNo || "",
-        registrationDateTime: form.registrationDateTime || new Date().toISOString(),
-        agentLetter: form.agentLetter,
-        agentTotalMoney: form.agentTotalMoney,
-        customerTotalMoney: form.customerTotalMoney,
-        agentAdvance: form.agentAdvance,
-        description: form.description,
-      };
+      let payload = {};
+      if (form.registrationType === "showroom") {
+        if (!existingBike) {
+          setFormError("Please search and link a showroom purchased bike first.");
+          setSubmitting(false);
+          return;
+        }
+        payload = {
+          registrationType: "showroom",
+          searchType: form.searchType,
+          searchValue: form.searchValue,
+          bikeId: existingBike.id,
+          bikeCompany: existingBike.bikeCompany || "",
+          bikeModel: existingBike.bikeModel || "",
+          chasisNo: existingBike.chasisNo || "",
+          registrationNo: form.registrationNo || existingBike.registrationNo || "",
+          registrationDateTime: form.registrationDateTime || new Date().toISOString(),
+          agentLetter: form.agentLetter,
+          agentTotalMoney: form.agentTotalMoney,
+          customerTotalMoney: form.customerTotalMoney,
+          agentAdvance: form.agentAdvance,
+          description: form.description,
+        };
+      } else {
+        if (!form.bikeCompany.trim() || !form.bikeModel.trim()) {
+          setFormError("Bike company and model are required for 3rd party registration.");
+          setSubmitting(false);
+          return;
+        }
+        payload = {
+          registrationType: "external",
+          customerName: form.customerName,
+          customerPhone: form.customerPhone,
+          bikeCompany: form.bikeCompany,
+          bikeModel: form.bikeModel,
+          chasisNo: form.chasisNo,
+          engineNo: form.engineNo,
+          registrationNo: form.registrationNo || "",
+          registrationDateTime: form.registrationDateTime || new Date().toISOString(),
+          agentLetter: form.agentLetter,
+          agentTotalMoney: form.agentTotalMoney,
+          customerTotalMoney: form.customerTotalMoney,
+          agentAdvance: form.agentAdvance,
+          description: form.description,
+        };
+      }
 
       const url = editingId ? `${BASE_URL}/registration/${editingId}` : `${BASE_URL}/registration`;
       const method = editingId ? "PUT" : "POST";
@@ -232,6 +293,8 @@ export default function RegistrationPage() {
   const pending = registrations.filter(r => !r.paperReceived).length;
   const received = registrations.filter(r => r.paperReceived).length;
   const totalRegProfit = registrations.reduce((sum, r) => sum + (Number(r.customerTotalMoney || 0) - Number(r.agentTotalMoney || 0)), 0);
+
+  const canSubmit = form.registrationType === "showroom" ? Boolean(existingBike) : Boolean(form.bikeCompany.trim() && form.bikeModel.trim());
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
@@ -286,7 +349,7 @@ export default function RegistrationPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by bike, chasis no, registration no, agent..."
+            placeholder="Search by bike, customer, chasis no, registration no, agent..."
             className="w-full text-sm bg-transparent outline-none"
           />
           {search && <button onClick={() => setSearch("")} className="text-slate-300 hover:text-slate-500"><X size={16} /></button>}
@@ -309,7 +372,7 @@ export default function RegistrationPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {["#", "Bike", "Chasis No", "Reg No", "Agent", "Agent Fee", "Customer Fee", "Profit", "Advance", "Date", "Status", "Actions"].map(h => (
+                    {["#", "Type", "Bike & Owner", "Chasis No", "Reg No", "Agent", "Agent Fee", "Customer Fee", "Profit", "Advance", "Date", "Status", "Actions"].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -317,10 +380,25 @@ export default function RegistrationPage() {
                 <tbody>
                   {filtered.map((item, i) => {
                     const profit = Number(item.customerTotalMoney || 0) - Number(item.agentTotalMoney || 0);
+                    const isExternal = item.registrationType === "external" || !item.bikeId;
                     return (
                       <tr key={item.id} className={`border-b border-slate-100 transition-colors ${!item.paperReceived ? "bg-rose-50/40 hover:bg-rose-50" : "hover:bg-slate-50"}`}>
                         <td className="px-4 py-3 text-slate-400 font-medium">{i + 1}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{item.bikeCompany} {item.bikeModel}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${isExternal ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
+                            {isExternal ? "3rd Party" : "Showroom"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-semibold text-slate-800">{item.bikeCompany} {item.bikeModel}</div>
+                          {item.customerName && (
+                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                              <User size={11} className="text-slate-400" />
+                              <span>{item.customerName}</span>
+                              {item.customerPhone && <span className="text-slate-400">({item.customerPhone})</span>}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.chasisNo || "—"}</td>
                         <td className="px-4 py-3 font-mono text-slate-700 whitespace-nowrap">{item.registrationNo || "AFR"}</td>
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{item.agentLetter || "—"}</td>
@@ -392,53 +470,146 @@ export default function RegistrationPage() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
+              {/* Registration Type Selector */}
               {!editingId && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search By</label>
-                    <select value={form.searchType} onChange={(e) => { setForm(f => ({ ...f, searchType: e.target.value, searchValue: "" })); setExistingBike(null); }}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900">
-                      <option value="chasisNo">Chasis No</option>
-                      <option value="registrationNo">Registration No</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      {form.searchType === "chasisNo" ? "Chasis Number" : "Registration Number"}
-                    </label>
-                    <div className="flex gap-2">
-                      <input type="text" value={form.searchValue}
-                        onChange={(e) => setForm(f => ({ ...f, searchValue: e.target.value }))}
-                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchBike())}
-                        placeholder={`Enter ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}`}
-                        className="flex-1 px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
-                      <button type="button" onClick={handleSearchBike} disabled={searching}
-                        className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5">
-                        {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                        Search
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {existingBike && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <p className="text-xs font-bold text-emerald-700 mb-1">✓ Linked Bike Purchase</p>
-                  <p className="text-sm font-semibold text-emerald-900">{existingBike.bikeCompany} {existingBike.bikeModel}</p>
-                  <p className="text-xs text-emerald-700">Chasis: {existingBike.chasisNo || "—"} | Reg: {form.registrationNo || existingBike.registrationNo || "AFR"}</p>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(f => ({ ...f, registrationType: "showroom" }));
+                      setFormError("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      form.registrationType === "showroom"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <Building2 size={14} /> Showroom Bike
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(f => ({ ...f, registrationType: "external" }));
+                      setExistingBike(null);
+                      setFormError("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      form.registrationType === "external"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <User size={14} /> 3rd Party Customer
+                  </button>
                 </div>
               )}
 
-              {existingBike && (
+              {/* Showroom Purchased Bike Search Flow */}
+              {form.registrationType === "showroom" && (
+                <>
+                  {!editingId && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search By</label>
+                        <select value={form.searchType} onChange={(e) => { setForm(f => ({ ...f, searchType: e.target.value, searchValue: "" })); setExistingBike(null); }}
+                          className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                          <option value="chasisNo">Chasis No</option>
+                          <option value="registrationNo">Registration No</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                          {form.searchType === "chasisNo" ? "Chasis Number" : "Registration Number"}
+                        </label>
+                        <div className="flex gap-2">
+                          <input type="text" value={form.searchValue}
+                            onChange={(e) => setForm(f => ({ ...f, searchValue: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchBike())}
+                            placeholder={`Enter ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}`}
+                            className="flex-1 px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                          <button type="button" onClick={handleSearchBike} disabled={searching}
+                            className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5">
+                            {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                            Search
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {existingBike && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <p className="text-xs font-bold text-emerald-700 mb-1">✓ Linked Showroom Bike Purchase</p>
+                      <p className="text-sm font-semibold text-emerald-900">{existingBike.bikeCompany} {existingBike.bikeModel}</p>
+                      <p className="text-xs text-emerald-700">Chasis: {existingBike.chasisNo || "—"} | Reg: {form.registrationNo || existingBike.registrationNo || "AFR"}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* 3rd Party Customer Bike Fields */}
+              {form.registrationType === "external" && (
+                <div className="space-y-3.5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">👤 3rd Party Bike & Owner Details</p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Customer / Owner Name</label>
+                      <input type="text" value={form.customerName} onChange={(e) => setForm(f => ({ ...f, customerName: e.target.value }))}
+                        placeholder="e.g. Muhammad Ali"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Phone</label>
+                      <input type="text" value={form.customerPhone} onChange={(e) => setForm(f => ({ ...f, customerPhone: e.target.value }))}
+                        placeholder="e.g. 0300-1234567"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bike Company *</label>
+                      <input type="text" value={form.bikeCompany} onChange={(e) => setForm(f => ({ ...f, bikeCompany: e.target.value }))}
+                        placeholder="e.g. Honda, Yamaha" required
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bike Model *</label>
+                      <input type="text" value={form.bikeModel} onChange={(e) => setForm(f => ({ ...f, bikeModel: e.target.value }))}
+                        placeholder="e.g. CD 70 2024" required
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chasis No</label>
+                      <input type="text" value={form.chasisNo} onChange={(e) => setForm(f => ({ ...f, chasisNo: e.target.value }))}
+                        placeholder="e.g. ME123456"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Engine No</label>
+                      <input type="text" value={form.engineNo} onChange={(e) => setForm(f => ({ ...f, engineNo: e.target.value }))}
+                        placeholder="e.g. E987654"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Shared Registration & Agent Fee Fields */}
+              {(form.registrationType === "external" || existingBike) && (
                 <>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Registration Number</label>
                     <input type="text" value={form.registrationNo} onChange={(e) => setForm(f => ({ ...f, registrationNo: e.target.value }))}
                       placeholder="e.g. KHI-1234 (Leave blank or AFR if pending)"
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
-                    <p className="text-[11px] text-slate-400 mt-1">Entering a number here replaces AFR on the purchase record once approved.</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Entering a number here replaces AFR status once approved.</p>
                   </div>
 
                   <div>
@@ -499,7 +670,7 @@ export default function RegistrationPage() {
               )}
 
               <div className="flex gap-3 pt-2">
-                {existingBike && (
+                {canSubmit && (
                   <button type="submit" disabled={submitting}
                     className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-bold py-3 rounded-xl hover:bg-slate-700 disabled:opacity-50">
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : (editingId ? <Pencil size={16} /> : <Plus size={16} />)}
@@ -518,4 +689,3 @@ export default function RegistrationPage() {
     </div>
   );
 }
-
