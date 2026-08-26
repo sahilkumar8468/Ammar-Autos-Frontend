@@ -20,17 +20,13 @@ import {
   Loader2,
   Receipt,
   Tag,
-  Clock,
-  Filter,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Wallet,
-  Sparkles,
   ArrowUpRight,
   ArrowDownRight,
-  PieChart,
-  Layers
+  Layers,
+  Building2,
+  UserCheck
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 
@@ -82,6 +78,7 @@ const formatTime = (val) => {
 const emptyExpenseForm = {
   title: "",
   amount: "",
+  transactionType: "expense", // "expense" | "income"
   category: "General",
   expenseDate: new Date().toISOString().slice(0, 10),
   description: ""
@@ -91,7 +88,7 @@ export default function ExpenseDashboard() {
   const router = useRouter();
 
   // Date Range state — DEFAULT TO "today"
-  const [range, setRange] = useState("today"); // "today" | "yesterday" | "specificDate" | "thisMonth" | "pastMonth" | "6months" | "1year" | "perMonth" | "custom" | "all"
+  const [range, setRange] = useState("today");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -101,7 +98,7 @@ export default function ExpenseDashboard() {
   // Tab state: "ledger" | "expenses" | "purchases" | "sales"
   const [activeTab, setActiveTab] = useState("ledger");
 
-  // Loading & data state
+  // Data state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [overviewData, setOverviewData] = useState({
@@ -109,6 +106,9 @@ export default function ExpenseDashboard() {
       totalGeneralExpenses: 0,
       totalBikePurchasesCost: 0,
       totalBikeSalesRevenue: 0,
+      totalOtherIncome: 0,
+      totalInflow: 0,
+      totalOutflow: 0,
       totalGrossProfit: 0,
       netProfit: 0,
       netCashFlow: 0,
@@ -135,6 +135,7 @@ export default function ExpenseDashboard() {
   const [quickTitle, setQuickTitle] = useState("");
   const [quickAmount, setQuickAmount] = useState("");
   const [quickCategory, setQuickCategory] = useState("General");
+  const [quickType, setQuickType] = useState("expense"); // "expense" | "income"
   const [quickSubmitting, setQuickSubmitting] = useState(false);
 
   const fetchOverviewData = useCallback(async () => {
@@ -186,7 +187,7 @@ export default function ExpenseDashboard() {
     setRange("specificDate");
   };
 
-  // Handle Quick Add Expense
+  // Handle Quick Add Expense or Income
   const handleQuickAdd = async (e) => {
     e.preventDefault();
     if (!quickTitle.trim() || !quickAmount) return;
@@ -198,17 +199,18 @@ export default function ExpenseDashboard() {
         body: JSON.stringify({
           title: quickTitle.trim(),
           amount: parseFloat(quickAmount),
+          transactionType: quickType,
           category: quickCategory,
           expenseDate: range === "specificDate" ? selectedDate : new Date().toISOString().slice(0, 10),
           description: "Quick entry"
         })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to record expense");
+      if (!res.ok) throw new Error(data.message || "Failed to record transaction");
 
       setQuickTitle("");
       setQuickAmount("");
-      setSuccessMsg(`Recorded "${quickTitle.trim()}" (Rs. ${Number(quickAmount).toLocaleString()}) successfully!`);
+      setSuccessMsg(`Recorded "${quickTitle.trim()}" (${money(quickAmount)}) successfully!`);
       fetchOverviewData();
       setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err) {
@@ -233,9 +235,9 @@ export default function ExpenseDashboard() {
         body: JSON.stringify(expenseForm)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to save expense");
+      if (!res.ok) throw new Error(data.message || "Failed to save record");
 
-      setSuccessMsg(editId ? "Expense updated successfully!" : "Expense recorded successfully!");
+      setSuccessMsg(editId ? "Entry updated successfully!" : "Entry recorded successfully!");
       setShowModal(false);
       fetchOverviewData();
       setTimeout(() => setSuccessMsg(""), 3500);
@@ -261,6 +263,7 @@ export default function ExpenseDashboard() {
     setExpenseForm({
       title: item.title || "",
       amount: item.amount || "",
+      transactionType: item.transactionType || "expense",
       category: item.category || "General",
       expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       description: item.description || ""
@@ -270,12 +273,12 @@ export default function ExpenseDashboard() {
   };
 
   const handleDeleteExpense = async (id) => {
-    if (!confirm("Are you sure you want to delete this expense record?")) return;
+    if (!confirm("Are you sure you want to delete this record?")) return;
     try {
       const res = await fetch(`${URL}/expense/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete expense");
-      setSuccessMsg("Expense record deleted successfully.");
+      if (!res.ok) throw new Error(data.message || "Failed to delete record");
+      setSuccessMsg("Record deleted successfully.");
       fetchOverviewData();
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
@@ -348,11 +351,16 @@ export default function ExpenseDashboard() {
 
   const currentRangeLabel = getRangeTitle();
   const summary = overviewData.summary || {};
-  const isNetProfitPositive = (summary.netProfit || 0) >= 0;
+  const isNetCashPositive = (summary.netCashFlow || 0) >= 0;
+
+  // Ledger totals for footer row
+  const ledgerTotalInflow = filteredLedger.reduce((acc, item) => acc + (Number(item.inflow) || 0), 0);
+  const ledgerTotalOutflow = filteredLedger.reduce((acc, item) => acc + (Number(item.outflow) || 0), 0);
+  const ledgerNetBalance = ledgerTotalInflow - ledgerTotalOutflow;
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans pb-20 selection:bg-rose-500 selection:text-white">
-      {/* Top Navigation Bar */}
+      {/* Header */}
       <header className="w-full bg-white/95 border-b border-slate-200/80 sticky top-0 z-40 shadow-xs backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -365,15 +373,15 @@ export default function ExpenseDashboard() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-rose-500 text-white font-bold shadow-sm shadow-rose-500/20 text-base">
-                  ₹
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-900 text-white font-bold shadow-sm text-base">
+                  ⚖️
                 </span>
                 <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
-                  Daily Expense & Financial Ledger
+                  Daily General Ledger & Expenses
                 </h1>
               </div>
               <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                Real-time operational cash tracking, bike sales profit & net showroom bottom line
+                Real-time operational cash tracking, daily inflow/outflow & day-end balance
               </p>
             </div>
           </div>
@@ -387,9 +395,9 @@ export default function ExpenseDashboard() {
             </button>
             <button
               onClick={openAddExpense}
-              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
             >
-              <Plus size={15} /> Add Expense
+              <Plus size={15} /> Record Entry
             </button>
             <button
               onClick={fetchOverviewData}
@@ -404,9 +412,9 @@ export default function ExpenseDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Success Alert Banner */}
+        {/* Banner Alert */}
         {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-3 text-emerald-900 text-sm font-bold shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-3 text-emerald-900 text-sm font-bold shadow-xs">
             <div className="flex items-center gap-2.5">
               <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
               <span>{successMsg}</span>
@@ -417,10 +425,9 @@ export default function ExpenseDashboard() {
           </div>
         )}
 
-        {/* Date Filter & Range Control Card */}
+        {/* Date Filter Controls */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            {/* Range Presets */}
             <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none">
               {[
                 { id: "today", label: "Today" },
@@ -438,7 +445,7 @@ export default function ExpenseDashboard() {
                   onClick={() => setRange(btn.id)}
                   className={`px-3.5 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                     range === btn.id
-                      ? "bg-slate-900 text-white shadow-sm shadow-slate-900/20"
+                      ? "bg-slate-900 text-white shadow-sm"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
                   }`}
                 >
@@ -447,7 +454,7 @@ export default function ExpenseDashboard() {
               ))}
             </div>
 
-            {/* Day Navigators (Previous / Next Day) */}
+            {/* Day Navigators */}
             <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end">
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
                 <button
@@ -483,7 +490,6 @@ export default function ExpenseDashboard() {
             </div>
           </div>
 
-          {/* Conditional Input Controls for Month or Custom Range */}
           {range === "perMonth" && (
             <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
               <span className="text-xs font-bold text-slate-600">Select Month:</span>
@@ -520,63 +526,82 @@ export default function ExpenseDashboard() {
           )}
         </div>
 
-        {/* HERO METRICS & KPI CARDS GRID */}
+        {/* HERO LEDGER SUMMARY CARDS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* NET PROFIT HERO CARD */}
+          {/* NET DAY-END CASHFLOW HERO CARD */}
           <div className={`col-span-1 md:col-span-2 lg:col-span-2 p-6 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all ${
-            isNetProfitPositive
+            isNetCashPositive
               ? "bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white border-emerald-700/60 shadow-emerald-950/10"
               : "bg-gradient-to-br from-rose-900 via-rose-800 to-slate-900 text-white border-rose-700/60 shadow-rose-950/10"
           }`}>
-            {/* Background Glow */}
             <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={`p-2 rounded-xl backdrop-blur-md ${isNetProfitPositive ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
-                  {isNetProfitPositive ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
+                <div className={`p-2 rounded-xl backdrop-blur-md ${isNetCashPositive ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
+                  {isNetCashPositive ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />}
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/80">
-                    Net Showroom Profit
+                    Day-End Cash Balance
                   </h3>
                   <p className="text-[11px] text-slate-300 font-semibold">{currentRangeLabel}</p>
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider backdrop-blur-md ${
-                isNetProfitPositive ? "bg-emerald-400/20 text-emerald-200 border border-emerald-400/30" : "bg-rose-400/20 text-rose-200 border border-rose-400/30"
+                isNetCashPositive ? "bg-emerald-400/20 text-emerald-200 border border-emerald-400/30" : "bg-rose-400/20 text-rose-200 border border-rose-400/30"
               }`}>
-                {isNetProfitPositive ? "Profitable" : "Deficit"}
+                {isNetCashPositive ? "Cash Inflow +" : "Cash Outflow -"}
               </span>
             </div>
 
             <div className="mt-6">
               <div className="text-3xl lg:text-4xl font-black tracking-tight drop-shadow-xs">
-                {money(summary.netProfit)}
+                {money(summary.netCashFlow)}
               </div>
               <div className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-slate-200">
-                <span>Bike Profit: <strong className="text-emerald-300 font-bold">+{money(summary.totalGrossProfit)}</strong></span>
-                <span>Expenses: <strong className="text-rose-300 font-bold">-{money(summary.totalGeneralExpenses)}</strong></span>
+                <span>Inflow: <strong className="text-emerald-300 font-bold">+{money(summary.totalInflow)}</strong></span>
+                <span>Outflow: <strong className="text-rose-300 font-bold">-{money(summary.totalOutflow)}</strong></span>
               </div>
             </div>
           </div>
 
-          {/* GROSS BIKE PROFIT */}
-          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-teal-300 transition-all group">
+          {/* BIKES PURCHASED OUTFLOW */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-amber-300 transition-all group">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-teal-600 transition-colors">
-                Gross Bike Profit
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-amber-600 transition-colors">
+                Bikes Purchased
               </span>
-              <div className="p-2 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-all">
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all">
+                <ShoppingCart size={18} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-rose-600 tracking-tight">
+                -{money(summary.totalBikePurchasesCost)}
+              </div>
+              <p className="text-[11px] text-slate-400 font-bold mt-1">
+                {summary.purchasesCount} bike(s) purchased
+              </p>
+            </div>
+          </div>
+
+          {/* BIKES SOLD INFLOW */}
+          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-emerald-300 transition-all group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-emerald-600 transition-colors">
+                Bikes Sold
+              </span>
+              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
                 <TrendingUp size={18} />
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-black text-teal-700 tracking-tight">
-                {money(summary.totalGrossProfit)}
+              <div className="text-2xl font-black text-emerald-700 tracking-tight">
+                +{money(summary.totalBikeSalesRevenue)}
               </div>
               <p className="text-[11px] text-slate-400 font-bold mt-1">
-                {summary.salesCount} bike(s) sold in period
+                {summary.salesCount} bike(s) sold
               </p>
             </div>
           </div>
@@ -593,44 +618,47 @@ export default function ExpenseDashboard() {
             </div>
             <div className="mt-4">
               <div className="text-2xl font-black text-rose-600 tracking-tight">
-                {money(summary.totalGeneralExpenses)}
+                -{money(summary.totalGeneralExpenses)}
               </div>
               <p className="text-[11px] text-slate-400 font-bold mt-1">
                 {summary.expensesCount} operational entry(s)
               </p>
             </div>
           </div>
-
-          {/* TOTAL BIKE SALES REVENUE */}
-          <div className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-blue-300 transition-all group">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
-                Sales Revenue
-              </span>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                <DollarSign size={18} />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl font-black text-slate-900 tracking-tight">
-                {money(summary.totalBikeSalesRevenue)}
-              </div>
-              <p className="text-[11px] text-slate-400 font-bold mt-1">
-                Purchases: {money(summary.totalBikePurchasesCost)}
-              </p>
-            </div>
-          </div>
         </div>
 
-        {/* QUICK ONE-CLICK INLINE EXPENSE ENTRY BAR */}
-        <div className="bg-white rounded-2xl p-4 border border-rose-200/90 shadow-xs">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
-              <Plus size={14} />
+        {/* QUICK ONE-CLICK INLINE EXPENSE / INCOME ENTRY BAR */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-slate-900 text-white rounded-lg">
+                <Plus size={14} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                Quick Ledger Entry <span className="text-slate-400 font-normal normal-case">(Add Expense or Other Income)</span>
+              </h3>
             </div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
-              Quick Add Daily Expense <span className="text-slate-400 font-normal normal-case">(e.g. Employee 500 Daily Wage, Chai 150, Parts 1200)</span>
-            </h3>
+            {/* Quick Type Selector */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setQuickType("expense")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
+                  quickType === "expense" ? "bg-rose-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                💸 Expense (Outflow)
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickType("income")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
+                  quickType === "income" ? "bg-emerald-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                💵 Income (Inflow)
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleQuickAdd} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
@@ -638,10 +666,10 @@ export default function ExpenseDashboard() {
               <input
                 type="text"
                 required
-                placeholder="Expense Title (e.g. Daily Wage, Tea, Bike Spare Parts)"
+                placeholder={quickType === "expense" ? "Expense Title (e.g. Employee Daily Wage, Tea, Repair)" : "Income Title (e.g. Scrap Sale, Service Fee)"}
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+                className="w-full px-3.5 py-2.5 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
               />
             </div>
 
@@ -655,7 +683,7 @@ export default function ExpenseDashboard() {
                   placeholder="Amount"
                   value={quickAmount}
                   onChange={(e) => setQuickAmount(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+                  className="w-full pl-9 pr-3.5 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
                 />
               </div>
             </div>
@@ -664,7 +692,7 @@ export default function ExpenseDashboard() {
               <select
                 value={quickCategory}
                 onChange={(e) => setQuickCategory(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
+                className="w-full px-3 py-2.5 text-xs font-bold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
               >
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -676,7 +704,9 @@ export default function ExpenseDashboard() {
               <button
                 type="submit"
                 disabled={quickSubmitting || !quickTitle.trim() || !quickAmount}
-                className="w-full h-full py-2.5 px-4 bg-slate-900 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className={`w-full h-full py-2.5 px-4 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                  quickType === "expense" ? "bg-slate-900 hover:bg-rose-600" : "bg-emerald-700 hover:bg-emerald-800"
+                }`}
               >
                 {quickSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 <span>Record</span>
@@ -685,7 +715,7 @@ export default function ExpenseDashboard() {
           </form>
         </div>
 
-        {/* EXPENSE CATEGORY BREAKDOWN PILLS */}
+        {/* EXPENSE CATEGORY BREAKDOWN */}
         {overviewData.categoryBreakdown && overviewData.categoryBreakdown.length > 0 && (
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
             <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
@@ -707,11 +737,10 @@ export default function ExpenseDashboard() {
 
         {/* TABBED LEDGER & TRANSACTION EXPLORER */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-          {/* Tabs & Search Header */}
           <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-1.5">
               {[
-                { id: "ledger", label: "All Activity Feed", count: filteredLedger.length, icon: <Layers size={14} /> },
+                { id: "ledger", label: "Daily General Ledger", count: filteredLedger.length, icon: <Layers size={14} /> },
                 { id: "expenses", label: "General Expenses", count: filteredExpenses.length, icon: <Receipt size={14} /> },
                 { id: "purchases", label: "Bike Purchases", count: filteredPurchases.length, icon: <ShoppingCart size={14} /> },
                 { id: "sales", label: "Bike Sales & Profit", count: filteredSales.length, icon: <DollarSign size={14} /> },
@@ -749,7 +778,6 @@ export default function ExpenseDashboard() {
             </div>
           </div>
 
-          {/* Table Content */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
               <Loader2 size={36} className="animate-spin text-rose-600" />
@@ -757,7 +785,7 @@ export default function ExpenseDashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              {/* TAB 1: ALL ACTIVITY LEDGER */}
+              {/* TAB 1: DAILY GENERAL LEDGER */}
               {activeTab === "ledger" && (
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -765,69 +793,106 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4 w-12">#</th>
                       <th className="py-3.5 px-4">Date / Time</th>
                       <th className="py-3.5 px-4">Type</th>
-                      <th className="py-3.5 px-4">Transaction / Details</th>
-                      <th className="py-3.5 px-4 text-right">Inflow (Rs.)</th>
-                      <th className="py-3.5 px-4 text-right">Outflow (Rs.)</th>
-                      <th className="py-3.5 px-4 text-right">Profit / Net Impact</th>
+                      <th className="py-3.5 px-4">Transaction / Description</th>
+                      <th className="py-3.5 px-4 text-right">Inflow (+)</th>
+                      <th className="py-3.5 px-4 text-right">Outflow (-)</th>
+                      <th className="py-3.5 px-4 text-right">Net Impact</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
                     {filteredLedger.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="text-center py-16 text-slate-400 font-semibold">
-                          No transactions or expenses found for this period.
+                          No transactions found for this period.
                         </td>
                       </tr>
                     ) : (
-                      filteredLedger.map((item, i) => (
-                        <tr key={`${item.type}-${item.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <div className="font-bold text-slate-800">{formatDate(item.date)}</div>
-                            <div className="text-[10px] text-slate-400">{formatTime(item.date)}</div>
-                          </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border ${
-                              item.type === "manual_expense"
-                                ? "bg-rose-50 text-rose-700 border-rose-200"
-                                : item.type === "bike_purchase"
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            }`}>
-                              {item.type === "manual_expense"
-                                ? item.category || "Expense"
-                                : item.type === "bike_purchase"
-                                ? "Bike Purchase"
-                                : "Bike Sale"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900">{item.title}</div>
-                            {item.description && <div className="text-[11px] text-slate-500 font-normal mt-0.5">{item.description}</div>}
-                            {item.buyerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Buyer: <strong>{item.buyerName}</strong></div>}
-                            {item.customerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Seller: <strong>{item.customerName}</strong></div>}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-black text-emerald-700 whitespace-nowrap">
-                            {item.inflow > 0 ? money(item.inflow) : "—"}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap">
-                            {item.outflow > 0 ? money(item.outflow) : "—"}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-black whitespace-nowrap">
-                            {item.type === "bike_sale" ? (
-                              <span className={item.profit >= 0 ? "text-emerald-700" : "text-rose-600"}>
-                                +{money(item.profit)}
+                      filteredLedger.map((item, i) => {
+                        const isInflow = Number(item.inflow || 0) > 0;
+                        const isOutflow = Number(item.outflow || 0) > 0;
+                        return (
+                          <tr key={`${item.type}-${item.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="font-bold text-slate-800">{formatDate(item.date)}</div>
+                              <div className="text-[10px] text-slate-400">{formatTime(item.date)}</div>
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border ${
+                                item.type === "manual_expense"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : item.type === "manual_income"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : item.type === "bike_purchase"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : item.type === "registration"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}>
+                                {item.type === "manual_expense"
+                                  ? (item.category || "Expense")
+                                  : item.type === "manual_income"
+                                  ? "Income"
+                                  : item.type === "bike_purchase"
+                                  ? "Bike Purchase"
+                                  : item.type === "registration"
+                                  ? "Registration"
+                                  : "Bike Sale"}
                               </span>
-                            ) : (
-                              <span className="text-rose-600">
-                                -{money(item.outflow || item.amount)}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-slate-900">{item.title}</div>
+                              {item.description && <div className="text-[11px] text-slate-500 font-normal mt-0.5">{item.description}</div>}
+                              {item.buyerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Buyer: <strong>{item.buyerName}</strong></div>}
+                              {item.customerName && <div className="text-[11px] text-slate-500 font-normal mt-0.5">Seller/Customer: <strong>{item.customerName}</strong></div>}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-black text-emerald-700 whitespace-nowrap">
+                              {isInflow ? `+ ${money(item.inflow)}` : "—"}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap">
+                              {isOutflow ? `- ${money(item.outflow)}` : "—"}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-black whitespace-nowrap">
+                              {isInflow && !isOutflow ? (
+                                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px]">
+                                  + {money(item.inflow)}
+                                </span>
+                              ) : isOutflow && !isInflow ? (
+                                <span className="text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md text-[11px]">
+                                  - {money(item.outflow)}
+                                </span>
+                              ) : (
+                                <span className={`px-2 py-0.5 rounded-md text-[11px] border ${Number(item.profit) >= 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-600 border-rose-200"}`}>
+                                  {Number(item.profit) >= 0 ? "+" : ""}{money(item.profit)}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
+                  {/* LEDGER FOOTER SUMMARY ROW */}
+                  {filteredLedger.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-900 text-white font-black text-xs border-t-2 border-slate-900">
+                        <td colSpan={4} className="py-4 px-4 uppercase tracking-wider text-slate-300">
+                          Day-End Ledger Total ({filteredLedger.length} Records)
+                        </td>
+                        <td className="py-4 px-4 text-right text-emerald-400 text-sm whitespace-nowrap">
+                          + {money(ledgerTotalInflow)}
+                        </td>
+                        <td className="py-4 px-4 text-right text-rose-400 text-sm whitespace-nowrap">
+                          - {money(ledgerTotalOutflow)}
+                        </td>
+                        <td className="py-4 px-4 text-right text-sm whitespace-nowrap">
+                          <span className={`px-3 py-1 rounded-xl text-xs font-black ${ledgerNetBalance >= 0 ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
+                            {ledgerNetBalance >= 0 ? "+" : ""}{money(ledgerNetBalance)}
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               )}
 
@@ -905,7 +970,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4">Reg No</th>
                       <th className="py-3.5 px-4">Chasis No</th>
                       <th className="py-3.5 px-4">Seller Name</th>
-                      <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Purchase Outflow (Rs.)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-medium">
@@ -928,8 +993,8 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 font-mono text-slate-700 font-bold">{item.registrationNo || "—"}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-500">{item.chasisNo || "—"}</td>
                           <td className="py-3.5 px-4 text-slate-700 font-medium">{item.customerName || "—"}</td>
-                          <td className="py-3.5 px-4 text-right font-black text-amber-700 whitespace-nowrap text-sm">
-                            {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
+                          <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap text-sm">
+                            - {money(parseFloat(item.actualAmount || 0) + parseFloat(item.additionalExpense || 0))}
                           </td>
                         </tr>
                       ))
@@ -948,7 +1013,7 @@ export default function ExpenseDashboard() {
                       <th className="py-3.5 px-4">Bike Details</th>
                       <th className="py-3.5 px-4">Reg No</th>
                       <th className="py-3.5 px-4">Buyer Name</th>
-                      <th className="py-3.5 px-4 text-right">Sale Price (Rs.)</th>
+                      <th className="py-3.5 px-4 text-right">Sale Inflow (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Purchase Cost (Rs.)</th>
                       <th className="py-3.5 px-4 text-right">Gross Profit (Rs.)</th>
                     </tr>
@@ -970,8 +1035,8 @@ export default function ExpenseDashboard() {
                           <td className="py-3.5 px-4 font-bold text-slate-900">{item.title}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-700 font-bold">{item.registrationNo || "—"}</td>
                           <td className="py-3.5 px-4 text-slate-700 font-medium">{item.buyerName || "—"}</td>
-                          <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                            {money(item.salePrice)}
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-700 whitespace-nowrap">
+                            + {money(item.salePrice)}
                           </td>
                           <td className="py-3.5 px-4 text-right font-bold text-slate-500 whitespace-nowrap">
                             {money(item.cost)}
@@ -990,20 +1055,20 @@ export default function ExpenseDashboard() {
         </div>
       </main>
 
-      {/* FULL ADD / EDIT EXPENSE MODAL */}
+      {/* FULL ADD / EDIT MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-rose-100 text-rose-700 rounded-2xl">
+                <div className="p-2.5 bg-slate-900 text-white rounded-2xl">
                   <Receipt size={22} />
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-slate-900">
-                    {editId ? "Edit Expense Entry" : "Record Daily Expense"}
+                    {editId ? "Edit Ledger Entry" : "Record Ledger Entry"}
                   </h2>
-                  <p className="text-xs text-slate-500 font-semibold">Enter operational expense details</p>
+                  <p className="text-xs text-slate-500 font-semibold">Enter expense or income details</p>
                 </div>
               </div>
               <button
@@ -1015,9 +1080,40 @@ export default function ExpenseDashboard() {
             </div>
 
             <form onSubmit={handleExpenseSubmit} className="p-6 space-y-4">
+              {/* Type Switcher */}
               <div>
                 <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
-                  Expense Title <span className="text-rose-500">*</span>
+                  Entry Type
+                </label>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setExpenseForm({ ...expenseForm, transactionType: "expense" })}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      expenseForm.transactionType !== "income"
+                        ? "bg-rose-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    💸 Expense (Outflow)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpenseForm({ ...expenseForm, transactionType: "income" })}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      expenseForm.transactionType === "income"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    💵 Income (Inflow)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
+                  Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1025,7 +1121,7 @@ export default function ExpenseDashboard() {
                   placeholder="e.g. Employee Daily Wage, Chai Expense, Bike Spare Parts"
                   value={expenseForm.title}
                   onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+                  className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
                 />
               </div>
 
@@ -1041,7 +1137,7 @@ export default function ExpenseDashboard() {
                     placeholder="e.g. 500"
                     value={expenseForm.amount}
                     onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                    className="w-full px-4 py-3 text-sm font-black border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900"
+                    className="w-full px-4 py-3 text-sm font-black border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900"
                   />
                 </div>
 
@@ -1052,7 +1148,7 @@ export default function ExpenseDashboard() {
                   <select
                     value={expenseForm.category}
                     onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
+                    className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-800 cursor-pointer"
                   >
                     {EXPENSE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -1063,14 +1159,14 @@ export default function ExpenseDashboard() {
 
               <div>
                 <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-1.5">
-                  Expense Date <span className="text-rose-500">*</span>
+                  Date <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={expenseForm.expenseDate}
                   onChange={(e) => setExpenseForm({ ...expenseForm, expenseDate: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900 cursor-pointer"
+                  className="w-full px-4 py-3 text-sm font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 cursor-pointer"
                 />
               </div>
 
@@ -1080,10 +1176,10 @@ export default function ExpenseDashboard() {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Additional details about this expense..."
+                  placeholder="Additional details about this entry..."
                   value={expenseForm.description}
                   onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                  className="w-full px-4 py-3 text-sm font-medium border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/70 focus:bg-white text-slate-900 resize-none"
+                  className="w-full px-4 py-3 text-sm font-medium border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/70 focus:bg-white text-slate-900 resize-none"
                 />
               </div>
 
@@ -1098,10 +1194,10 @@ export default function ExpenseDashboard() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-rose-600 text-white text-sm font-bold py-3.5 rounded-2xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3.5 rounded-2xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  <span>{submitting ? "Saving..." : editId ? "Update Expense" : "Save Expense"}</span>
+                  <span>{submitting ? "Saving..." : editId ? "Update Entry" : "Save Entry"}</span>
                 </button>
                 <button
                   type="button"

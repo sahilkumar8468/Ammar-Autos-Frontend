@@ -293,18 +293,19 @@ export function downloadInventoryPDF(inventory = [], summary = {}) {
 /* ─── EXPENSE & FINANCIAL LEDGER PDF ────────────────────────── */
 export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month") {
   const summary = overviewData.summary || {};
+  const ledger = overviewData.ledger || [];
   const expenses = overviewData.expenses || [];
   const sales = overviewData.sales || [];
   const categoryBreakdown = overviewData.categoryBreakdown || [];
 
-  const expenseRows = expenses.map((e, idx) => `
+  const ledgerRows = ledger.map((item, idx) => `
     <tr style="border-bottom:1px solid #f1f5f9;">
-      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${idx + 1}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("en-PK") : "—"}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#1e293b;">${e.title || "—"}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#475569;"><span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:10px;">${e.category || "General"}</span></td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#e11d48;text-align:right;">${fmt(e.amount)}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${e.description || "—"}</td>
+      <td style="padding:7px 10px;font-size:11px;color:#64748b;">${idx + 1}</td>
+      <td style="padding:7px 10px;font-size:11px;color:#334155;font-weight:600;">${item.date ? new Date(item.date).toLocaleDateString("en-PK") : "—"}</td>
+      <td style="padding:7px 10px;font-size:11px;"><span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;">${item.category || item.type}</span></td>
+      <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#1e293b;">${item.title || "—"}</td>
+      <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#059669;text-align:right;">${item.inflow > 0 ? `+ ${fmt(item.inflow)}` : "—"}</td>
+      <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#dc2626;text-align:right;">${item.outflow > 0 ? `- ${fmt(item.outflow)}` : "—"}</td>
     </tr>
   `).join("");
 
@@ -315,17 +316,6 @@ export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month")
     </tr>
   `).join("");
 
-  const salesRows = sales.map((s, idx) => `
-    <tr style="border-bottom:1px solid #f1f5f9;">
-      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${idx + 1}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${s.date ? new Date(s.date).toLocaleDateString("en-PK") : "—"}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#1e293b;">${s.title}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#475569;">${s.buyerName || "—"}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#059669;text-align:right;">${fmt(s.salePrice)}</td>
-      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:#0d9488;text-align:right;">${fmt(s.profit)}</td>
-    </tr>
-  `).join("");
-
   const body = `
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:white;padding:22px 26px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
@@ -333,7 +323,7 @@ export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month")
         <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;">🏍️ ${SHOWROOM}</div>
         <div style="font-size:11px;opacity:0.7;margin-top:2px;">${SHOWROOM_SUB}</div>
         <div style="margin-top:6px;display:inline-block;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
-          Daily Expense & Financial Ledger Report (${rangeLabel})
+          Daily General Ledger & Expenses Report (${rangeLabel})
         </div>
       </div>
       <div style="text-align:right;">
@@ -343,22 +333,26 @@ export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month")
     </div>
 
     <!-- Summary Metrics -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;">
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:#166534;text-transform:uppercase;">Net Profit</div>
-        <div style="font-size:18px;font-weight:800;color:#15803d;margin-top:3px;">${fmt(summary.netProfit)}</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:22px;">
+      <div style="background:${(summary.netCashFlow || 0) >= 0 ? "#f0fdf4" : "#fff1f2"};border:1px solid ${(summary.netCashFlow || 0) >= 0 ? "#bbf7d0" : "#fecdd3"};border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:8px;font-weight:700;color:#475569;text-transform:uppercase;">Day-End Cash Balance</div>
+        <div style="font-size:15px;font-weight:800;color:${(summary.netCashFlow || 0) >= 0 ? "#15803d" : "#be123c"};margin-top:3px;">${fmt(summary.netCashFlow)}</div>
       </div>
-      <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:#115e59;text-transform:uppercase;">Gross Bike Profit</div>
-        <div style="font-size:18px;font-weight:800;color:#0f766e;margin-top:3px;">${fmt(summary.totalGrossProfit)}</div>
+      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:8px;font-weight:700;color:#9f1239;text-transform:uppercase;">Bikes Purchased (Outflow)</div>
+        <div style="font-size:15px;font-weight:800;color:#be123c;margin-top:3px;">-${fmt(summary.totalBikePurchasesCost)}</div>
       </div>
-      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:#9f1239;text-transform:uppercase;">General Daily Expenses</div>
-        <div style="font-size:18px;font-weight:800;color:#be123c;margin-top:3px;">${fmt(summary.totalGeneralExpenses)}</div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:8px;font-weight:700;color:#166534;text-transform:uppercase;">Bikes Sold (Inflow)</div>
+        <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:3px;">+${fmt(summary.totalBikeSalesRevenue)}</div>
       </div>
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;">Total Bike Sales</div>
-        <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:3px;">${fmt(summary.totalBikeSalesRevenue)}</div>
+      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:8px;font-weight:700;color:#9f1239;text-transform:uppercase;">General Expenses</div>
+        <div style="font-size:15px;font-weight:800;color:#be123c;margin-top:3px;">-${fmt(summary.totalGeneralExpenses)}</div>
+      </div>
+      <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:8px;font-weight:700;color:#115e59;text-transform:uppercase;">Net Showroom Profit</div>
+        <div style="font-size:15px;font-weight:800;color:#0f766e;margin-top:3px;">${fmt(summary.netProfit)}</div>
       </div>
     </div>
 
@@ -378,44 +372,31 @@ export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month")
       </table>
     ` : ""}
 
-    <!-- Itemized General Expenses Table -->
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:8px;">Itemized General Expenses (${expenses.length})</div>
+    <!-- Daily General Ledger Table -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:8px;">Daily General Ledger Feed (${ledger.length} Entries)</div>
     <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:24px;">
       <thead>
         <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
           <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">#</th>
           <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Date</th>
-          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Title</th>
-          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Category</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Amount</th>
-          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Description</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Type</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Transaction Details</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Inflow (+)</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Outflow (-)</th>
         </tr>
       </thead>
       <tbody>
-        ${expenseRows || `<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8;font-size:11px;">No manual expenses recorded in this period.</td></tr>`}
+        ${ledgerRows || `<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8;font-size:11px;">No ledger activity recorded in this period.</td></tr>`}
       </tbody>
+      <tfoot>
+        <tr style="background:#0f172a;color:white;font-weight:700;font-size:11px;">
+          <td colspan="4" style="padding:8px 10px;text-transform:uppercase;">Total Day-End Closing Balance</td>
+          <td style="padding:8px 10px;text-align:right;color:#4ade80;">+ ${fmt(summary.totalInflow)}</td>
+          <td style="padding:8px 10px;text-align:right;color:#f87171;">- ${fmt(summary.totalOutflow)}</td>
+        </tr>
+      </tfoot>
     </table>
-
-    <!-- Bike Sales & Profit Table -->
-    ${sales.length > 0 ? `
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:8px;">Bike Sales in Period (${sales.length})</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">#</th>
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Date</th>
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Bike Description</th>
-            <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Buyer</th>
-            <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Sale Price</th>
-            <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Gross Profit</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${salesRows}
-        </tbody>
-      </table>
-    ` : ""}
   `;
 
-  printWindow(`${SHOWROOM} — Expense & Ledger Report (${rangeLabel})`, body);
+  printWindow(`${SHOWROOM} — Daily General Ledger Report (${rangeLabel})`, body);
 }

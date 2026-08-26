@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2 } from "lucide-react";
+import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -97,6 +97,7 @@ export default function RegistrationPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const [existingBike, setExistingBike] = useState(null);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -130,7 +131,7 @@ export default function RegistrationPage() {
   }, [registrations, search]);
 
   const handleSearchBike = async () => {
-    if (!form.searchValue.trim()) return;
+    if (!form.searchValue.trim() || isViewOnly) return;
     setSearching(true);
     setExistingBike(null);
     setFormError("");
@@ -153,6 +154,7 @@ export default function RegistrationPage() {
   const handleOpenEdit = (item) => {
     const isExt = item.registrationType === "external" || !item.bikeId;
     setEditingId(item.id);
+    setIsViewOnly(false);
     if (!isExt) {
       setExistingBike({
         id: item.bikeId,
@@ -186,6 +188,11 @@ export default function RegistrationPage() {
     setShowForm(true);
   };
 
+  const handleOpenView = (item) => {
+    handleOpenEdit(item);
+    setIsViewOnly(true);
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this registration record?")) return;
     try {
@@ -203,6 +210,7 @@ export default function RegistrationPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isViewOnly) return;
     setSubmitting(true);
     setFormError("");
     try {
@@ -265,6 +273,7 @@ export default function RegistrationPage() {
       if (res.ok) {
         setForm(emptyForm);
         setEditingId(null);
+        setIsViewOnly(false);
         setExistingBike(null);
         setShowForm(false);
         fetchRegistrations();
@@ -313,7 +322,7 @@ export default function RegistrationPage() {
           <div className="flex items-center gap-3">
             <button onClick={fetchRegistrations} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><RefreshCw size={16} /></button>
             <button
-              onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm); setExistingBike(null); setFormError(""); }}
+              onClick={() => { setShowForm(true); setEditingId(null); setIsViewOnly(false); setForm(emptyForm); setExistingBike(null); setFormError(""); }}
               className="flex items-center gap-2 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all shadow-md"
             >
               <Plus size={16} /> Add Registration
@@ -426,6 +435,13 @@ export default function RegistrationPage() {
                               <Check size={15} />
                             </button>
                             <button
+                              onClick={() => handleOpenView(item)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="View Registration Details"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
                               onClick={() => handleOpenEdit(item)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                               title="Edit Registration"
@@ -458,13 +474,15 @@ export default function RegistrationPage() {
         </div>
       </main>
 
-      {/* Add / Edit Registration Modal */}
+      {/* Add / Edit / View Registration Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">{editingId ? "Edit Registration" : "Add Registration"}</h2>
-              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
+              <h2 className="text-lg font-bold text-slate-900">
+                {isViewOnly ? "View Registration Record" : (editingId ? "Edit Registration" : "Add Registration")}
+              </h2>
+              <button onClick={() => { setShowForm(false); setEditingId(null); setIsViewOnly(false); }} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
                 <X size={18} />
               </button>
             </div>
@@ -475,6 +493,7 @@ export default function RegistrationPage() {
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => {
                       setForm(f => ({ ...f, registrationType: "showroom" }));
                       setFormError("");
@@ -489,6 +508,7 @@ export default function RegistrationPage() {
                   </button>
                   <button
                     type="button"
+                    disabled={isViewOnly}
                     onClick={() => {
                       setForm(f => ({ ...f, registrationType: "external" }));
                       setExistingBike(null);
@@ -508,11 +528,12 @@ export default function RegistrationPage() {
               {/* Showroom Purchased Bike Search Flow */}
               {form.registrationType === "showroom" && (
                 <>
-                  {!editingId && (
+                  {!editingId && !isViewOnly && (
                     <>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search By</label>
                         <select value={form.searchType} onChange={(e) => { setForm(f => ({ ...f, searchType: e.target.value, searchValue: "" })); setExistingBike(null); }}
+                          disabled={isViewOnly}
                           className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900">
                           <option value="chasisNo">Chasis No</option>
                           <option value="registrationNo">Registration No</option>
@@ -525,11 +546,12 @@ export default function RegistrationPage() {
                         </label>
                         <div className="flex gap-2">
                           <input type="text" value={form.searchValue}
+                            disabled={isViewOnly}
                             onChange={(e) => setForm(f => ({ ...f, searchValue: e.target.value }))}
                             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchBike())}
                             placeholder={`Enter ${form.searchType === "chasisNo" ? "Chasis No" : "Reg No"}`}
                             className="flex-1 px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
-                          <button type="button" onClick={handleSearchBike} disabled={searching}
+                          <button type="button" onClick={handleSearchBike} disabled={searching || isViewOnly}
                             className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5">
                             {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                             Search
@@ -557,45 +579,45 @@ export default function RegistrationPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Customer / Owner Name</label>
-                      <input type="text" value={form.customerName} onChange={(e) => setForm(f => ({ ...f, customerName: e.target.value }))}
+                      <input type="text" value={form.customerName} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, customerName: e.target.value }))}
                         placeholder="e.g. Muhammad Ali"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Phone</label>
-                      <input type="text" value={form.customerPhone} onChange={(e) => setForm(f => ({ ...f, customerPhone: e.target.value }))}
+                      <input type="text" value={form.customerPhone} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, customerPhone: e.target.value }))}
                         placeholder="e.g. 0300-1234567"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bike Company *</label>
-                      <input type="text" value={form.bikeCompany} onChange={(e) => setForm(f => ({ ...f, bikeCompany: e.target.value }))}
+                      <input type="text" value={form.bikeCompany} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, bikeCompany: e.target.value }))}
                         placeholder="e.g. Honda, Yamaha" required
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bike Model *</label>
-                      <input type="text" value={form.bikeModel} onChange={(e) => setForm(f => ({ ...f, bikeModel: e.target.value }))}
+                      <input type="text" value={form.bikeModel} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, bikeModel: e.target.value }))}
                         placeholder="e.g. CD 70 2024" required
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chasis No</label>
-                      <input type="text" value={form.chasisNo} onChange={(e) => setForm(f => ({ ...f, chasisNo: e.target.value }))}
+                      <input type="text" value={form.chasisNo} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, chasisNo: e.target.value }))}
                         placeholder="e.g. ME123456"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Engine No</label>
-                      <input type="text" value={form.engineNo} onChange={(e) => setForm(f => ({ ...f, engineNo: e.target.value }))}
+                      <input type="text" value={form.engineNo} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, engineNo: e.target.value }))}
                         placeholder="e.g. E987654"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
                     </div>
                   </div>
                 </div>
@@ -606,31 +628,31 @@ export default function RegistrationPage() {
                 <>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Registration Number</label>
-                    <input type="text" value={form.registrationNo} onChange={(e) => setForm(f => ({ ...f, registrationNo: e.target.value }))}
+                    <input type="text" value={form.registrationNo} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, registrationNo: e.target.value }))}
                       placeholder="e.g. KHI-1234 (Leave blank or AFR if pending)"
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
-                    <p className="text-[11px] text-slate-400 mt-1">Entering a number here replaces AFR status once approved.</p>
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                    {!isViewOnly && <p className="text-[11px] text-slate-400 mt-1">Entering a number here replaces AFR status once approved.</p>}
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent / Letter Reference</label>
-                    <input type="text" value={form.agentLetter} onChange={(e) => setForm(f => ({ ...f, agentLetter: e.target.value }))}
+                    <input type="text" value={form.agentLetter} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, agentLetter: e.target.value }))}
                       placeholder="Agent name or letter reference" required
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Fee / Cost (Rs.)</label>
-                      <input type="number" value={form.agentTotalMoney} onChange={(e) => setForm(f => ({ ...f, agentTotalMoney: e.target.value }))}
+                      <input type="number" value={form.agentTotalMoney} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, agentTotalMoney: e.target.value }))}
                         placeholder="e.g. 8500" required
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Customer Charge (Rs.)</label>
-                      <input type="number" value={form.customerTotalMoney} onChange={(e) => setForm(f => ({ ...f, customerTotalMoney: e.target.value }))}
+                      <input type="number" value={form.customerTotalMoney} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, customerTotalMoney: e.target.value }))}
                         placeholder="e.g. 9000" required
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                   </div>
 
@@ -645,22 +667,22 @@ export default function RegistrationPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent Advance Paid (Rs.)</label>
-                    <input type="number" value={form.agentAdvance} onChange={(e) => setForm(f => ({ ...f, agentAdvance: e.target.value }))}
+                    <input type="number" value={form.agentAdvance} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, agentAdvance: e.target.value }))}
                       placeholder="Advance paid to agent" required
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Registration Date &amp; Time</label>
-                    <input type="datetime-local" value={form.registrationDateTime} onChange={(e) => setForm(f => ({ ...f, registrationDateTime: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                    <input type="datetime-local" value={form.registrationDateTime} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, registrationDateTime: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Notes / Description</label>
-                    <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                    <textarea value={form.description} disabled={isViewOnly} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                       rows={3} placeholder="Additional notes..."
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none" />
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 disabled:bg-slate-100 disabled:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none" />
                   </div>
                 </>
               )}
@@ -670,16 +692,16 @@ export default function RegistrationPage() {
               )}
 
               <div className="flex gap-3 pt-2">
-                {canSubmit && (
+                {!isViewOnly && canSubmit && (
                   <button type="submit" disabled={submitting}
                     className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-bold py-3 rounded-xl hover:bg-slate-700 disabled:opacity-50">
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : (editingId ? <Pencil size={16} /> : <Plus size={16} />)}
                     {editingId ? "Update Registration" : "Save Registration"}
                   </button>
                 )}
-                <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }}
+                <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setIsViewOnly(false); }}
                   className="flex-1 bg-slate-100 text-slate-600 text-sm font-bold py-3 rounded-xl hover:bg-slate-200">
-                  Cancel
+                  {isViewOnly ? "Close" : "Cancel"}
                 </button>
               </div>
             </form>

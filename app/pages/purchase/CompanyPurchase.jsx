@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil, Check, Search, ChevronLeft, ChevronRight, FileDown } from "lucide-react";
+import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil, Check, Search, ChevronLeft, ChevronRight, FileDown, Eye } from "lucide-react";
 import { downloadPurchasePDF } from "@/app/lib/pdfUtils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -75,6 +75,7 @@ export default function CompanyPurchase({ goBack }) {
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
 
   // Pagination
@@ -135,7 +136,7 @@ export default function CompanyPurchase({ goBack }) {
 
   const goToPage = (p) => { setPage(p); };
 
-  const openAdd = () => { setForm(emptyForm); setEditId(null); setFormError(""); setShowForm(true); };
+  const openAdd = () => { setForm(emptyForm); setEditId(null); setIsViewOnly(false); setFormError(""); setShowForm(true); };
   const openEdit = (p) => {
     setForm({
       customerName: p.customerName || "",
@@ -158,13 +159,19 @@ export default function CompanyPurchase({ goBack }) {
       documents: p.documents || [],
     });
     setEditId(p.id);
+    setIsViewOnly(false);
     setFormError("");
     setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setFormError(""); setForm(emptyForm); setEditId(null); };
+  const openView = (p) => {
+    openEdit(p);
+    setIsViewOnly(true);
+  };
+  const closeForm = () => { setShowForm(false); setFormError(""); setForm(emptyForm); setEditId(null); setIsViewOnly(false); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isViewOnly) return;
     setSubmitting(true);
     setFormError("");
     try {
@@ -380,6 +387,7 @@ export default function CompanyPurchase({ goBack }) {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
+                            <button onClick={() => openView(p)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200" title="View Purchase Details"><Eye size={14} /></button>
                             <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit"><Pencil size={14} /></button>
                             <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete"><Trash2 size={14} /></button>
                             <button onClick={() => downloadPurchasePDF(p)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200" title="Download PDF"><FileDown size={14} /></button>
@@ -423,12 +431,12 @@ export default function CompanyPurchase({ goBack }) {
         )}
       </main>
 
-      {/* Add / Edit Modal */}
+      {/* Add / Edit / View Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">{editId ? "Edit" : "Add"} Customer Purchase</h2>
+              <h2 className="text-lg font-bold text-slate-900">{isViewOnly ? "View Company Purchase Record" : (editId ? "Edit" : "Add") + " Customer Purchase"}</h2>
               <button onClick={closeForm} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200"><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
@@ -452,8 +460,9 @@ export default function CompanyPurchase({ goBack }) {
                       name={field.name}
                       value={form[field.name]}
                       onChange={handleChange}
+                      disabled={isViewOnly}
                       required={field.required}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       placeholder={field.type !== "date" && field.type !== "number" ? `Enter ${field.label.toLowerCase()}` : ""}
                     />
                   </div>
@@ -463,8 +472,8 @@ export default function CompanyPurchase({ goBack }) {
               {[{ name: "currentAddress", label: "Current Address" }, { name: "permanentAddress", label: "Permanent Address" }].map((field) => (
                 <div key={field.name}>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{field.label}</label>
-                  <textarea name={field.name} value={form[field.name]} onChange={handleChange} rows={2}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white resize-none"
+                  <textarea name={field.name} value={form[field.name]} onChange={handleChange} rows={2} disabled={isViewOnly}
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600 resize-none"
                     placeholder={`Enter ${field.label.toLowerCase()}`} />
                 </div>
               ))}
@@ -481,9 +490,9 @@ export default function CompanyPurchase({ goBack }) {
                   ].map((field) => (
                     <div key={field.name}>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{field.label}</label>
-                      <input type="text" name={field.name} value={form[field.name]} onChange={handleChange}
+                      <input type="text" name={field.name} value={form[field.name]} onChange={handleChange} disabled={isViewOnly}
                         placeholder={`Enter ${field.label.toLowerCase()}`}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       />
                     </div>
                   ))}
@@ -496,33 +505,39 @@ export default function CompanyPurchase({ goBack }) {
                   ].map((field) => (
                     <div key={field.name}>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{field.label}</label>
-                      <input type="text" name={field.name} value={form[field.name]} onChange={handleChange}
+                      <input type="text" name={field.name} value={form[field.name]} onChange={handleChange} disabled={isViewOnly}
                         placeholder="Enter number or AFR"
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       />
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-slate-400 mt-2">
-                  Type <span className="font-semibold text-slate-500">AFR</span> in any of these fields if only the "Applied For Registration" letter has been received and the number isn't available yet.
-                </p>
+                {!isViewOnly && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Type <span className="font-semibold text-slate-500">AFR</span> in any of these fields if only the "Applied For Registration" letter has been received and the number isn't available yet.
+                  </p>
+                )}
               </div>
 
               {/* Photos */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Purchase Documents / Photos</label>
-                  <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
-                    + Add Photo
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("documents", e.target.files[0])} />
-                  </label>
+                  {!isViewOnly && (
+                    <label className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
+                      + Add Photo
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => addPhoto("documents", e.target.files[0])} />
+                    </label>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {form.documents.map((url, idx) => (
                     <div key={idx} className="relative w-16 h-16">
                       <img src={url} alt="" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
-                      <button type="button" onClick={() => removePhoto("documents", idx)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">×</button>
+                      {!isViewOnly && (
+                        <button type="button" onClick={() => removePhoto("documents", idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">×</button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -530,14 +545,16 @@ export default function CompanyPurchase({ goBack }) {
 
               {formError && <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>}
               <div className="flex items-center gap-3 pt-2">
-                <button type="submit" disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  {submitting ? "Saving..." : editId ? "Update" : "Save Purchase"}
-                </button>
+                {!isViewOnly && (
+                  <button type="submit" disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60">
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    {submitting ? "Saving..." : editId ? "Update" : "Save Purchase"}
+                  </button>
+                )}
                 <button type="button" onClick={closeForm}
                   className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200">
-                  Cancel
+                  {isViewOnly ? "Close" : "Cancel"}
                 </button>
               </div>
             </form>

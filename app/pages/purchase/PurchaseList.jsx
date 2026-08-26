@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Eye } from "lucide-react";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -20,6 +20,7 @@ export default function PurchaseList({ category }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [isViewOnly, setIsViewOnly] = useState(false);
 
   const emptyForm = {
     customerName: "",
@@ -54,8 +55,27 @@ export default function PurchaseList({ category }) {
     fetchPurchases();
   }, [fetchPurchases]);
 
+  const openView = (p) => {
+    setForm({
+      customerName: p.customerName || "",
+      customerFatherName: p.customerFatherName || "",
+      customerNo: p.customerNo || "",
+      purchaseDate: p.purchaseDate || "",
+      currentAddress: p.currentAddress || "",
+      permanentAddress: p.permanentAddress || "",
+      cnicNumber: p.cnicNumber || "",
+      actualAmount: p.actualAmount ?? "",
+      amountRemaining: p.amountRemaining ?? "",
+      additionalExpense: p.additionalExpense ?? "",
+    });
+    setIsViewOnly(true);
+    setFormError("");
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isViewOnly) return;
     setSubmitting(true);
     setFormError("");
     try {
@@ -68,6 +88,7 @@ export default function PurchaseList({ category }) {
       if (!res.ok) throw new Error(data.message || "Failed to create");
       setForm(emptyForm);
       setShowForm(false);
+      setIsViewOnly(false);
       fetchPurchases();
     } catch (e) {
       setFormError(e.message);
@@ -133,7 +154,7 @@ export default function PurchaseList({ category }) {
             <div className="h-1 w-12 bg-slate-900 mt-2 rounded-full" />
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setForm(emptyForm); setIsViewOnly(false); setFormError(""); setShowForm(true); }}
             className="flex items-center gap-2 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
           >
             <Plus size={16} />
@@ -192,13 +213,22 @@ export default function PurchaseList({ category }) {
                           : p.purchaseDate || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openView(p)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
+                            title="View Details"
+                          >
+                            <Eye size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            title="Delete"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -209,15 +239,15 @@ export default function PurchaseList({ category }) {
         </div>
       </main>
 
-      {/* Add Purchase Modal */}
+      {/* Add Purchase / View Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Add {label}</h2>
+              <h2 className="text-lg font-bold text-slate-900">{isViewOnly ? `View ${label} Record` : `Add ${label}`}</h2>
               <button
-                onClick={() => { setShowForm(false); setFormError(""); setForm(emptyForm); }}
+                onClick={() => { setShowForm(false); setFormError(""); setForm(emptyForm); setIsViewOnly(false); }}
                 className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200"
               >
                 <X size={18} />
@@ -246,8 +276,9 @@ export default function PurchaseList({ category }) {
                       name={field.name}
                       value={form[field.name]}
                       onChange={handleChange}
+                      disabled={isViewOnly}
                       required={field.required}
-                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white"
+                      className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       placeholder={field.type === "text" ? `Enter ${field.label.toLowerCase()}` : ""}
                     />
                   </div>
@@ -267,8 +298,9 @@ export default function PurchaseList({ category }) {
                     name={field.name}
                     value={form[field.name]}
                     onChange={handleChange}
+                    disabled={isViewOnly}
                     rows={2}
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white resize-none"
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600 resize-none"
                     placeholder={`Enter ${field.label.toLowerCase()}`}
                   />
                 </div>
@@ -278,21 +310,24 @@ export default function PurchaseList({ category }) {
                 <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{formError}</p>
               )}
 
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60"
-                >
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  {submitting ? "Saving..." : "Save Purchase"}
-                </button>
+              {/* Submit / Close buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                {!isViewOnly && (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 disabled:opacity-60"
+                  >
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    {submitting ? "Saving..." : "Save Purchase"}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); setFormError(""); setForm(emptyForm); }}
+                  onClick={() => { setShowForm(false); setFormError(""); setForm(emptyForm); setIsViewOnly(false); }}
                   className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200"
                 >
-                  Cancel
+                  {isViewOnly ? "Close" : "Cancel"}
                 </button>
               </div>
             </form>
