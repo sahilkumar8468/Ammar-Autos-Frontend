@@ -135,9 +135,18 @@ export default function LocalPurchase({ goBack }) {
     setPage(1);
   };
 
-  const goToPage = (p) => {
-    setPage(p);
-  };
+  const goToPage = (p) => { setPage(p); };
+
+  useEffect(() => {
+    if (showForm) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showForm]);
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setIsViewOnly(false); setFormError(""); setShowForm(true); };
   const openEdit = (p) => {

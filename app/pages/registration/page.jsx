@@ -130,6 +130,17 @@ export default function RegistrationPage() {
     );
   }, [registrations, search]);
 
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showModal]);
+
   const handleSearchBike = async () => {
     if (!form.searchValue.trim() || isViewOnly) return;
     setSearching(true);

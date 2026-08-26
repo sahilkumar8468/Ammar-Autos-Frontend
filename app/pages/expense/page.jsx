@@ -173,6 +173,18 @@ export default function ExpenseDashboard() {
     fetchOverviewData();
   }, [fetchOverviewData]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showModal]);
+
   // Navigate date by +/- 1 day
   const changeDay = (offset) => {
     let baseDate = new Date();

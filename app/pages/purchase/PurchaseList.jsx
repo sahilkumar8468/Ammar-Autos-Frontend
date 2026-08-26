@@ -55,6 +55,17 @@ export default function PurchaseList({ category }) {
     fetchPurchases();
   }, [fetchPurchases]);
 
+  useEffect(() => {
+    if (showForm) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showForm]);
+
   const openView = (p) => {
     setForm({
       customerName: p.customerName || "",

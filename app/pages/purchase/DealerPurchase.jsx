@@ -136,6 +136,17 @@ export default function DealerPurchase({ goBack }) {
 
   const goToPage = (p) => { setPage(p); };
 
+  useEffect(() => {
+    if (showForm) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showForm]);
+
   const openAdd = () => { setForm(emptyForm); setEditId(null); setIsViewOnly(false); setFormError(""); setShowForm(true); };
   const openEdit = (p) => {
     setForm({

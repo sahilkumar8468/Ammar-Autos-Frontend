@@ -183,6 +183,17 @@ export default function SaleList() {
     setShowReturnModal(true);
   };
 
+  useEffect(() => {
+    if (showForm || showReturnModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showForm, showReturnModal]);
+
   const closeReturnModal = () => {
     setShowReturnModal(false);
     setReturnSale(null);
