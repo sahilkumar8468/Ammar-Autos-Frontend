@@ -63,36 +63,46 @@ const getCategoryColor = (cat) => {
 
 const money = (n) => (n != null ? `Rs. ${Number(n).toLocaleString()}` : "—");
 
-const formatDate = (val) => {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (isNaN(d)) return "—";
-  return d.toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const formatTime = (val) => {
-  if (!val) return "";
-  const d = new Date(val);
-  if (isNaN(d)) return "";
-  return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
-};
-
-const safeISOString = (val) => {
-  if (!val) return new Date().toISOString().slice(0, 10);
+const parseAnyDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
   if (typeof val === "object") {
     if (typeof val.toDate === "function") {
-      try { return val.toDate().toISOString().slice(0, 10); } catch (_) {}
+      try { return val.toDate(); } catch (_) {}
     }
     const secs = val.seconds ?? val._seconds;
     if (typeof secs === "number") {
-      try { return new Date(secs * 1000).toISOString().slice(0, 10); } catch (_) {}
+      try { return new Date(secs * 1000); } catch (_) {}
     }
   }
   try {
     const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  } catch (_) {}
-  return new Date().toISOString().slice(0, 10);
+    return isNaN(d.getTime()) ? null : d;
+  } catch (_) {
+    return null;
+  }
+};
+
+const formatDate = (val) => {
+  const d = parseAnyDate(val);
+  if (!d) return "—";
+  return d.toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const formatTime = (val) => {
+  const d = parseAnyDate(val);
+  if (!d) return "";
+  return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
+};
+
+const safeISOString = (val) => {
+  const d = parseAnyDate(val);
+  if (!d) return new Date().toISOString().slice(0, 10);
+  try {
+    return d.toISOString().slice(0, 10);
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
 };
 
 const emptyExpenseForm = {
@@ -947,8 +957,8 @@ export default function ExpenseDashboard() {
                           <tr key={`${item.type}-${item.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4 text-slate-400 font-bold">{i + 1}</td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
-                              <div className="font-bold text-slate-800">{formatDate(item.date)}</div>
-                              <div className="text-[10px] text-slate-400">{formatTime(item.date)}</div>
+                              <div className="font-bold text-slate-800">{formatDate(item.date || item.expenseDate || item.purchaseDateTime || item.createdAt)}</div>
+                              <div className="text-[10px] text-slate-400">{formatTime(item.date || item.expenseDate || item.purchaseDateTime || item.createdAt)}</div>
                             </td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border ${
