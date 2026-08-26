@@ -1,14 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Heart, ArrowUp } from "lucide-react";
+import { ShieldCheck, ArrowUp } from "lucide-react";
 
 export default function Footer() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const navigateTo = (path) => {
+    if (mounted && router) {
+      router.push(path);
+    }
   };
 
   return (
@@ -27,19 +40,19 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-4 text-slate-300 font-bold">
-          <button onClick={() => router.push("/dashboard")} className="hover:text-white transition-colors cursor-pointer">
+          <button onClick={() => navigateTo("/dashboard")} className="hover:text-white transition-colors cursor-pointer">
             Dashboard
           </button>
           <span>•</span>
-          <button onClick={() => router.push("/expense-dashboard")} className="hover:text-white transition-colors cursor-pointer">
+          <button onClick={() => navigateTo("/expense-dashboard")} className="hover:text-white transition-colors cursor-pointer">
             Daily Expense
           </button>
           <span>•</span>
-          <button onClick={() => router.push("/earning-dashboard")} className="hover:text-white transition-colors cursor-pointer">
+          <button onClick={() => navigateTo("/earning-dashboard")} className="hover:text-white transition-colors cursor-pointer">
             Profit Reports
           </button>
           <span>•</span>
-          <button onClick={() => router.push("/registration-dashboard")} className="hover:text-white transition-colors cursor-pointer">
+          <button onClick={() => navigateTo("/registration-dashboard")} className="hover:text-white transition-colors cursor-pointer">
             Registrations
           </button>
         </div>

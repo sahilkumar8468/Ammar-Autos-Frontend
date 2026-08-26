@@ -79,8 +79,20 @@ const formatTime = (val) => {
 
 const safeISOString = (val) => {
   if (!val) return new Date().toISOString().slice(0, 10);
-  const d = new Date(val);
-  return isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
+  if (typeof val === "object") {
+    if (typeof val.toDate === "function") {
+      try { return val.toDate().toISOString().slice(0, 10); } catch (_) {}
+    }
+    const secs = val.seconds ?? val._seconds;
+    if (typeof secs === "number") {
+      try { return new Date(secs * 1000).toISOString().slice(0, 10); } catch (_) {}
+    }
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch (_) {}
+  return new Date().toISOString().slice(0, 10);
 };
 
 const emptyExpenseForm = {
