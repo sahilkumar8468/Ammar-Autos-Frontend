@@ -14,7 +14,7 @@ import {
   Receipt,
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
+import SyncButton from "@/app/components/SyncButton";
 
 const modules = [
   { icon: <ShoppingCart size={28} />, label: "Purchase", color: "bg-blue-50 text-blue-600 hover:bg-blue-100", route: "/purchase-dashboard" },
@@ -36,7 +36,7 @@ export default function DashboardPage() {
       <div>
         {/* Modern Header Banner */}
         <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs backdrop-blur-md bg-white/90 px-4 sm:px-6 py-3.5 sm:py-4">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="bg-slate-900 text-white p-2 sm:p-2.5 rounded-xl shadow-md shadow-slate-900/10">
                 <span role="img" aria-label="motorbike" className="text-lg sm:text-xl block leading-none">🏍️</span>
@@ -46,9 +46,7 @@ export default function DashboardPage() {
                 <p className="text-[11px] sm:text-xs text-slate-500 font-medium -mt-0.5">Point of Sale & Showroom Management System</p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Mobile Ready
-            </div>
+            <SyncButton />
           </div>
         </header>
 
