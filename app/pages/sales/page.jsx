@@ -10,7 +10,6 @@ import {
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
 import Footer from "@/app/components/Footer";
-import SyncButton from "@/app/components/SyncButton";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -678,16 +677,13 @@ export default function SaleList() {
               <p className="text-xs text-slate-500 font-medium -mt-0.5">Manage Bike Sales & Custom Installment Schedules</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <SyncButton />
-            <button
-              onClick={() => router.push("/earning-dashboard")}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl hover:bg-teal-700 transition-all shadow-md shadow-teal-600/20"
-            >
-              <TrendingUp size={16} />
-              View Earning & Profit
-            </button>
-          </div>
+          <button
+            onClick={() => router.push("/earning-dashboard")}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl hover:bg-teal-700 transition-all shadow-md shadow-teal-600/20"
+          >
+            <TrendingUp size={16} />
+            View Earning & Profit
+          </button>
         </div>
       </header>
 
