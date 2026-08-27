@@ -400,3 +400,81 @@ export function downloadExpensePDF(overviewData = {}, rangeLabel = "This Month")
 
   printWindow(`${SHOWROOM} — Daily General Ledger Report (${rangeLabel})`, body);
 }
+
+export function downloadNetIncomePDF({
+  rangeLabel = "Daily Summary",
+  date = new Date().toLocaleDateString("en-PK"),
+  grossProfit = 0,
+  deductibleExpenses = 0,
+  neglectedExpenses = 0,
+  netIncome = 0,
+  expensesList = [],
+}) {
+  const expenseRows = expensesList.map((exp, idx) => `
+    <tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${idx + 1}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:600;color:#1e293b;">${exp.title || "—"}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#64748b;">${exp.category || "General"}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#475569;">${exp.description || "—"}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:700;text-align:right;color:#e11d48;">Rs. ${Number(exp.amount || 0).toLocaleString()}</td>
+      <td style="padding:8px 10px;font-size:10px;font-weight:700;text-align:center;">
+        <span style="padding:2px 8px;border-radius:12px;${exp.deductFromProfit ? "background:#fee2e2;color:#991b1b;" : "background:#f1f5f9;color:#64748b;"}">
+          ${exp.deductFromProfit ? "Deducted" : "Neglected"}
+        </span>
+      </td>
+    </tr>
+  `).join("");
+
+  const body = `
+    <div style="border-bottom:2px solid #0f172a;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+      <div>
+        <h1 style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">${SHOWROOM}</h1>
+        <p style="font-size:11px;color:#64748b;font-weight:500;margin-top:2px;">${SHOWROOM_SUB}</p>
+      </div>
+      <div style="text-align:right;">
+        <h2 style="font-size:13px;font-weight:800;color:#059669;text-transform:uppercase;letter-spacing:0.04em;">Daily Net Income Report</h2>
+        <p style="font-size:11px;color:#64748b;margin-top:2px;">${rangeLabel} (${date})</p>
+      </div>
+    </div>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;text-align:center;">
+        <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px;">
+          <div style="font-size:9px;font-weight:700;color:#047857;text-transform:uppercase;">Bike Sale Gross Profit</div>
+          <div style="font-size:16px;font-weight:800;color:#059669;margin-top:4px;">Rs. ${Number(grossProfit).toLocaleString()}</div>
+        </div>
+        <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:12px;">
+          <div style="font-size:9px;font-weight:700;color:#be123c;text-transform:uppercase;">Deductible Expenses</div>
+          <div style="font-size:16px;font-weight:800;color:#e11d48;margin-top:4px;">-Rs. ${Number(deductibleExpenses).toLocaleString()}</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;">
+          <div style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;">Neglected Expenses</div>
+          <div style="font-size:16px;font-weight:800;color:#64748b;margin-top:4px;">Rs. ${Number(neglectedExpenses).toLocaleString()}</div>
+        </div>
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;">
+          <div style="font-size:9px;font-weight:700;color:#15803d;text-transform:uppercase;">Final Net Income</div>
+          <div style="font-size:16px;font-weight:800;color:#16a34a;margin-top:4px;">Rs. ${Number(netIncome).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#475569;margin-bottom:10px;">Itemized Expenses & Deduction Breakdown</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+      <thead>
+        <tr style="background:#f1f5f9;border-bottom:1px solid #e2e8f0;">
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">#</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Expense Title</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Category</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Description</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Amount</th>
+          <th style="padding:8px 10px;text-align:center;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Profit Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${expenseRows || `<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8;font-size:11px;">No expenses recorded for this period.</td></tr>`}
+      </tbody>
+    </table>
+  `;
+
+  printWindow(`${SHOWROOM} — Net Income Report (${date})`, body);
+}

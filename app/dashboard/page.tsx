@@ -35,9 +35,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased flex flex-col justify-between pb-16 md:pb-0">
       <div>
-        {/* Original Modern Header Banner */}
+        {/* Header Banner with Title & Sync Buttons */}
         <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs backdrop-blur-md bg-white/90 px-4 sm:px-6 py-3.5 sm:py-4">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="bg-slate-900 text-white p-2 sm:p-2.5 rounded-xl shadow-md shadow-slate-900/10">
                 <span role="img" aria-label="motorbike" className="text-lg sm:text-xl block leading-none">🏍️</span>
@@ -47,9 +47,9 @@ export default function DashboardPage() {
                 <p className="text-[11px] sm:text-xs text-slate-500 font-medium -mt-0.5">Point of Sale & Showroom Management System</p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Mobile Ready
-            </div>
+            
+            {/* Sync, Export & Import Action Buttons */}
+            <SyncButton />
           </div>
         </header>
 
@@ -75,20 +75,6 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-center tracking-tight">{mod.label}</span>
               </button>
             ))}
-          </div>
-
-          {/* Standalone Database Backup & Cloud Sync Controls Card */}
-          <div className="mt-8 sm:mt-10 p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                <span className="text-lg">💾</span>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Database & Backup Controls</h3>
-                <p className="text-xs text-slate-500">Offline-First Local Storage, Laptop JSON Backup & Cloud Sync</p>
-              </div>
-            </div>
-            <SyncButton />
           </div>
         </main>
       </div>
