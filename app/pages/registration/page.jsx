@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -133,7 +135,7 @@ export default function RegistrationPage() {
   }, [registrations, search]);
 
   useEffect(() => {
-    if (showModal) {
+    if (showForm) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -141,7 +143,7 @@ export default function RegistrationPage() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [showModal]);
+  }, [showForm]);
 
   const handleSearchBike = async () => {
     if (!form.searchValue.trim() || isViewOnly) return;
