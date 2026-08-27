@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -395,7 +394,6 @@ export default function PaymentDashboard() {
                       </div>
                     </div>
 
-                    {/* Footer */}
                     <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Monthly</span>
@@ -423,7 +421,6 @@ export default function PaymentDashboard() {
         </div>
       </main>
 
-      <Footer />
       <MobileBottomNav />
 
       {/* ── PAY MODAL ── */}

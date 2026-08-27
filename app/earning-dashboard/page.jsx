@@ -20,7 +20,6 @@ import {
   Tag
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 import { downloadNetIncomePDF } from "@/app/lib/pdfUtils";
 import { saveLocalRecord, getLocalPaginated } from "@/app/lib/offlineService";
 
@@ -442,7 +441,6 @@ export default function EarningDashboard() {
         </main>
       </div>
 
-      <Footer />
       <MobileBottomNav />
     </div>
   );

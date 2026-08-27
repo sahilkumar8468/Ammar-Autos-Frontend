@@ -16,7 +16,6 @@ import {
   Receipt,
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 import SyncButton from "@/app/components/SyncButton";
 
 const modules = [
@@ -81,7 +80,6 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      <Footer />
       <MobileBottomNav />
     </div>
   );

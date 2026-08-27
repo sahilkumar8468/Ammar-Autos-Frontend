@@ -7,9 +7,7 @@ import {
   Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight,
   Eye, Calendar, CheckCircle2, AlertCircle, RotateCcw
 } from "lucide-react";
-import { downloadSalePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -861,7 +859,6 @@ export default function SaleList() {
         )}
       </main>
 
-      <Footer />
       <MobileBottomNav />
 
       {/* Unified Add / Edit / View (Readonly) Modal Form */}

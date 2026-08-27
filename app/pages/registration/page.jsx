@@ -4,9 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2, Eye } from "lucide-react";
-import { useRouter } from "next/navigation";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -489,7 +487,6 @@ export default function RegistrationPage() {
         </div>
       </main>
 
-      <Footer />
       <MobileBottomNav />
 
       {/* Add / Edit / View Registration Modal */}

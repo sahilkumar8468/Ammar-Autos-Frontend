@@ -30,7 +30,6 @@ import {
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
-import Footer from "@/app/components/Footer";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -1268,7 +1267,6 @@ export default function ExpenseDashboard() {
         </div>
       </main>
 
-      <Footer />
       <MobileBottomNav />
 
       {/* FULL ADD / EDIT / VIEW MODAL */}
