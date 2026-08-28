@@ -107,6 +107,16 @@ const toDateTimeInputValue = (ts) => {
   return new Date(secs * 1000).toISOString().slice(0, 16);
 };
 
+const getMaxDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 export default function SaleList() {
   const router = useRouter();
   const label = "Sale";
@@ -580,6 +590,11 @@ export default function SaleList() {
     e.preventDefault();
     if (isReadOnly) {
       closeForm();
+      return;
+    }
+
+    if (form.saleDateTime && new Date(form.saleDateTime) > new Date()) {
+      setFormError("Sale date cannot be in the future.");
       return;
     }
 
@@ -1087,6 +1102,7 @@ export default function SaleList() {
                   <input
                     type="datetime-local" name="saleDateTime" value={form.saleDateTime} onChange={handleChange}
                     disabled={isReadOnly} readOnly={isReadOnly}
+                    max={getMaxDateTime()}
                     className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                   />
                 </div>
