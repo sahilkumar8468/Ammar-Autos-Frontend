@@ -9,9 +9,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
 export const getUnsyncedCount = async () => {
   if (typeof window === "undefined" || !db) return 0;
   try {
-    const unsyncedSales = await db.sales.where("isSynced").equals(0).or("isSynced").equals(false).count();
-    const unsyncedExpenses = await db.expenses.where("isSynced").equals(0).or("isSynced").equals(false).count();
-    const unsyncedPurchases = await db.purchases.where("isSynced").equals(0).or("isSynced").equals(false).count();
+    const unsyncedSales = await db.sales.filter(item => !item.isSynced).count();
+    const unsyncedExpenses = await db.expenses.filter(item => !item.isSynced).count();
+    const unsyncedPurchases = await db.purchases.filter(item => !item.isSynced).count();
     const queueCount = await db.syncQueue.count();
 
     return unsyncedSales + unsyncedExpenses + unsyncedPurchases + queueCount;
