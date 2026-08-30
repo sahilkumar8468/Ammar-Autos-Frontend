@@ -88,6 +88,13 @@ const safeISOString = (dateVal) => {
   }
 };
 
+const formatDate = (val) => {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" });
+};
+
 const emptyExpenseForm = {
   title: "",
   amount: "",
@@ -103,6 +110,9 @@ export default function ExpenseDashboard() {
   // Date Range state — DEFAULT TO "today"
   const [range, setRange] = useState("today");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [monthStr, setMonthStr] = useState(getTodayLocalDate().slice(0, 7));
   const [search, setSearch] = useState("");
 
   // Tab state: "ledger" | "expenses" | "purchases" | "sales"
