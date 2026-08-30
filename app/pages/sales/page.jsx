@@ -8,6 +8,7 @@ import {
   Eye, Calendar, CheckCircle2, AlertCircle, RotateCcw
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -176,6 +177,8 @@ export default function SaleList() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [regLookupStatus, setRegLookupStatus] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Return / Buyback Modal state
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -692,15 +695,19 @@ export default function SaleList() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this sale record?")) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`${URL}/sale/${id}`, { method: "DELETE" });
+      const res = await fetch(`${URL}/sale/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete");
+      if (!res.ok) throw new Error(data.message || "Failed to delete sale record");
+      setDeleteTarget(null);
       fetchSales();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -868,7 +875,7 @@ export default function SaleList() {
                           <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
                             <Pencil size={14} />
                           </button>
-                          <button onClick={() => handleDelete(s.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete">
+                          <button onClick={() => setDeleteTarget(s)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete">
                             <Trash2 size={14} />
                           </button>
                           <button onClick={() => downloadSalePDF(s)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200" title="Download PDF">
@@ -1596,6 +1603,17 @@ export default function SaleList() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={isDeleting}
+        title="Delete Sale Record"
+        itemName={deleteTarget ? `${deleteTarget.bikeCompany || ""} ${deleteTarget.bikeModel || ""} (${deleteTarget.registrationNo || "AFR"}) - Buyer: ${deleteTarget.buyerName || "—"}` : ""}
+        description="Are you sure you want to delete this sale record? Deleting this sale will restore the bike's status in inventory and remove all associated financial revenue."
+      />
     </div>
   );
 }

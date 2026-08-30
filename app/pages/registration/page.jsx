@@ -2,9 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo,useRouter } from "react";
 import { ArrowLeft, Check, Plus, Loader2, RefreshCw, Search, FileDown, X, ClipboardList, Pencil, Trash2, User, Building2, Eye } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -105,6 +106,8 @@ export default function RegistrationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchRegistrations = async () => {
     setLoading(true);
@@ -206,11 +209,13 @@ export default function RegistrationPage() {
     setIsViewOnly(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this registration record?")) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`${BASE_URL}/registration/${id}`, { method: "DELETE" });
+      const res = await fetch(`${BASE_URL}/registration/${deleteTarget.id}`, { method: "DELETE" });
       if (res.ok) {
+        setDeleteTarget(null);
         fetchRegistrations();
       } else {
         const d = await res.json();
@@ -218,6 +223,8 @@ export default function RegistrationPage() {
       }
     } catch (e) {
       alert("Delete failed. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -462,7 +469,7 @@ export default function RegistrationPage() {
                               <Pencil size={15} />
                             </button>
                             <button
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => setDeleteTarget(item)}
                               className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                               title="Delete Registration"
                             >
@@ -723,6 +730,17 @@ export default function RegistrationPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={isDeleting}
+        title="Delete Registration Record"
+        itemName={deleteTarget ? `${deleteTarget.bikeCompany || ""} ${deleteTarget.bikeModel || ""} (${deleteTarget.registrationNo || "AFR"})` : ""}
+        description="Are you sure you want to delete this bike registration record? This action cannot be undone."
+      />
     </div>
   );
 }

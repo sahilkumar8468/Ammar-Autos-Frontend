@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
 
@@ -160,6 +161,8 @@ export default function ExpenseDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Inline Quick Add State
   const [quickTitle, setQuickTitle] = useState("");
@@ -352,17 +355,21 @@ export default function ExpenseDashboard() {
     setShowModal(true);
   };
 
-  const handleDeleteExpense = async (id) => {
-    if (!confirm("Are you sure you want to delete this record?")) return;
+  const confirmDeleteExpense = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`${URL}/expense/${id}`, { method: "DELETE" });
+      const res = await fetch(`${URL}/expense/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete record");
       setSuccessMsg("Record deleted successfully.");
+      setDeleteTarget(null);
       fetchOverviewData();
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       alert(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1017,7 +1024,7 @@ export default function ExpenseDashboard() {
                                         <Pencil size={13} />
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteExpense(item.id)}
+                                        onClick={() => setDeleteTarget(item)}
                                         className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 rounded-lg transition-all cursor-pointer"
                                         title="Delete"
                                       >
@@ -1108,7 +1115,7 @@ export default function ExpenseDashboard() {
                                   <Pencil size={13} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteExpense(item.id)}
+                                  onClick={() => setDeleteTarget(item)}
                                   className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 rounded-lg transition-all cursor-pointer"
                                   title="Delete Expense"
                                 >
@@ -1401,6 +1408,17 @@ export default function ExpenseDashboard() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteExpense}
+        loading={isDeleting}
+        title={deleteTarget?.transactionType === "income" || deleteTarget?.type === "manual_income" ? "Delete Income Entry" : "Delete Expense Entry"}
+        itemName={deleteTarget ? `${deleteTarget.title || ""} (${money(deleteTarget.amount)})` : ""}
+        description="Are you sure you want to delete this ledger entry? This action will permanently remove it from all calculations and cannot be undone."
+      />
 
       <MobileBottomNav />
     </div>

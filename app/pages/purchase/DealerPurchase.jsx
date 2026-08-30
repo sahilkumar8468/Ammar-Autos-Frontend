@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Pencil, Check, Search, ChevronLeft, ChevronRight, FileDown, Eye } from "lucide-react";
 import { downloadPurchasePDF } from "@/app/lib/pdfUtils";
+import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -95,6 +96,8 @@ export default function DealerPurchase({ goBack }) {
   const [editId, setEditId] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -240,14 +243,20 @@ export default function DealerPurchase({ goBack }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this record?")) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`${BASE_URL}/purchase/${id}`, { method: "DELETE" });
+      const res = await fetch(`${BASE_URL}/purchase/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || "Failed to delete purchase record");
+      setDeleteTarget(null);
       fetchPurchases(page);
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleApprove = async (id) => {
@@ -430,7 +439,7 @@ export default function DealerPurchase({ goBack }) {
                           <div className="flex items-center gap-1">
                             <button onClick={() => openView(p)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200" title="View Purchase Details"><Eye size={14} /></button>
                             <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit"><Pencil size={14} /></button>
-                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete"><Trash2 size={14} /></button>
+                            <button onClick={() => setDeleteTarget(p)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete"><Trash2 size={14} /></button>
                             <button onClick={() => downloadPurchasePDF(p)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200" title="Download PDF"><FileDown size={14} /></button>
                           </div>
                         </td>
@@ -603,6 +612,17 @@ export default function DealerPurchase({ goBack }) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={isDeleting}
+        title="Delete Dealer Purchase Record"
+        itemName={deleteTarget ? `${deleteTarget.bikeCompany || ""} ${deleteTarget.bikeModel || ""} - ${deleteTarget.registrationNo || deleteTarget.customerName || ""}` : ""}
+        description="Are you sure you want to delete this purchase record? This will permanently remove the bike and its financial entry from your inventory."
+      />
     </div>
   );
 }

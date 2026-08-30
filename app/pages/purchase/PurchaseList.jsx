@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, X, Loader2, RefreshCw, Trash2, Eye } from "lucide-react";
+import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -29,6 +30,8 @@ export default function PurchaseList({ category }) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [isViewOnly, setIsViewOnly] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const emptyForm = {
     customerName: "",
@@ -128,15 +131,19 @@ export default function PurchaseList({ category }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this purchase record?")) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`${URL}/purchase/${id}`, { method: "DELETE" });
+      const res = await fetch(`${URL}/purchase/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || "Failed to delete purchase record");
+      setDeleteTarget(null);
       fetchPurchases();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -253,7 +260,7 @@ export default function PurchaseList({ category }) {
                             <Eye size={15} />
                           </button>
                           <button
-                            onClick={() => handleDelete(p.id)}
+                            onClick={() => setDeleteTarget(p)}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                             title="Delete"
                           >
@@ -366,6 +373,17 @@ export default function PurchaseList({ category }) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={isDeleting}
+        title="Delete Purchase Record"
+        itemName={deleteTarget ? `${deleteTarget.bikeCompany || ""} ${deleteTarget.bikeModel || ""} - ${deleteTarget.registrationNo || deleteTarget.customerName || ""}` : ""}
+        description="Are you sure you want to delete this purchase record? This action cannot be undone."
+      />
     </div>
   );
 }
