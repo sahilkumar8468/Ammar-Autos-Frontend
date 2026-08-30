@@ -15,9 +15,12 @@ import {
   Search,
   CheckCircle,
   FileText,
-  AlertCircle
+  AlertCircle,
+  FileDown
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import ExportPDFModal from "@/app/components/ExportPDFModal";
+import { downloadEarningPDF } from "@/app/lib/pdfUtils";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
 
@@ -41,6 +44,7 @@ export default function EarningDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const [data, setData] = useState({
     summary: {
@@ -85,6 +89,42 @@ export default function EarningDashboard() {
       setLoading(false);
     }
   }, [range, startDate, endDate, monthStr]);
+
+  const handleExportEarningPDF = async ({ rangeType, startDate, endDate }) => {
+    const params = new URLSearchParams();
+    let rangeLabel = "All Time";
+    if (rangeType === "all") {
+      params.set("range", "all");
+      rangeLabel = "All Time (Full)";
+    } else if (rangeType === "today") {
+      params.set("range", "custom");
+      const today = new Date().toISOString().slice(0, 10);
+      params.set("startDate", today);
+      params.set("endDate", today);
+      rangeLabel = `Today (${today})`;
+    } else if (rangeType === "thisMonth") {
+      params.set("range", "thisMonth");
+      rangeLabel = "This Month";
+    } else if (rangeType === "pastMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+      params.set("range", "custom");
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+      rangeLabel = "Past Month";
+    } else if (rangeType === "custom" && startDate && endDate) {
+      params.set("range", "custom");
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+      rangeLabel = `${startDate} to ${endDate}`;
+    }
+
+    const res = await fetch(`${URL}/earning?${params.toString()}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.message || "Failed to fetch earning data for PDF export");
+    downloadEarningPDF(json, rangeLabel);
+  };
 
   useEffect(() => {
     fetchEarningData();
@@ -133,14 +173,24 @@ export default function EarningDashboard() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchEarningData}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            Refresh Data
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-all shadow-md cursor-pointer"
+              title="Download Earning & Profit PDF Report"
+            >
+              <FileDown size={15} />
+              Download PDF
+            </button>
+            <button
+              onClick={fetchEarningData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              Refresh Data
+            </button>
+          </div>
         </div>
       </header>
 
@@ -525,6 +575,17 @@ export default function EarningDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Export Earning & Profit PDF Modal */}
+      <ExportPDFModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportEarningPDF}
+        title="Export Earning & Profit Report"
+        description="Choose a date range or export all profit, margin, and revenue transactions."
+        defaultRange="all"
+      />
+
       <MobileBottomNav />
     </div>
   );

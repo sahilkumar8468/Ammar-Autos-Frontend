@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Banknote, Loader2, RefreshCw, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import ExportPDFModal from "@/app/components/ExportPDFModal";
 import { downloadInventoryPDF } from "@/app/lib/pdfUtils";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -17,6 +18,7 @@ export default function InventoryDashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const fetchInventory = async (pageNum = 1) => {
     setLoading(true);
@@ -39,6 +41,37 @@ export default function InventoryDashboard() {
     }
   };
 
+  const handleExportPDF = async ({ rangeType, startDate, endDate }) => {
+    const params = new URLSearchParams({ all: "true" });
+    if (rangeType === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      params.set("startDate", today);
+      params.set("endDate", today);
+    } else if (rangeType === "thisMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+    } else if (rangeType === "pastMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+    } else if (rangeType === "custom" && startDate && endDate) {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
+
+    const res = await fetch(`${URL}/inventory?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to fetch inventory for PDF export");
+    const exportData = data.data || [];
+    const exportSummary = data.summary || summary;
+    downloadInventoryPDF(exportData, exportSummary);
+  };
+
   useEffect(() => { fetchInventory(page); }, [page]);
 
   return (
@@ -56,7 +89,7 @@ export default function InventoryDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => downloadInventoryPDF(inventory, summary)}
+              onClick={() => setShowExportModal(true)}
               className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-all shadow-md cursor-pointer"
               title="Download Inventory PDF Report"
             >
@@ -171,6 +204,17 @@ export default function InventoryDashboard() {
           )}
         </div>
       </main>
+
+      {/* Export PDF Date Range Modal */}
+      <ExportPDFModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportPDF}
+        title="Export Inventory PDF Report"
+        description="Choose a date range or export all unsold inventory stock in your showroom."
+        defaultRange="all"
+      />
+
       <MobileBottomNav />
     </div>
   );

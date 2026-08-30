@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
 import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
+import ExportPDFModal from "@/app/components/ExportPDFModal";
+import { downloadSalePDF, downloadSalesSummaryPDF } from "@/app/lib/pdfUtils";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -179,6 +181,7 @@ export default function SaleList() {
   const [regLookupStatus, setRegLookupStatus] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Return / Buyback Modal state
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -711,10 +714,40 @@ export default function SaleList() {
     }
   };
 
-  const totalAmountRemaining = Math.max(
-    0,
-    parseFloat(form.totalSaleAmount || 0) - parseFloat(form.advanceReceived || 0)
-  );
+  const handleExportSalesPDF = async ({ rangeType, startDate, endDate }) => {
+    const params = new URLSearchParams({ limit: "all" });
+    let rangeLabel = "All Time";
+    if (rangeType === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      params.set("startDate", today);
+      params.set("endDate", today);
+      rangeLabel = `Today (${today})`;
+    } else if (rangeType === "thisMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+      rangeLabel = "This Month";
+    } else if (rangeType === "pastMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+      rangeLabel = "Past Month";
+    } else if (rangeType === "custom" && startDate && endDate) {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+      rangeLabel = `${startDate} to ${endDate}`;
+    }
+
+    const res = await fetch(`${URL}/sale?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to fetch sales for PDF export");
+    const exportSales = data.data || [];
+    downloadSalesSummaryPDF(exportSales, rangeLabel);
+  };
 
   const installmentScheduleSum = (form.installments || []).reduce(
     (sum, item) => sum + parseFloat(item.amount || 0),
@@ -759,13 +792,23 @@ export default function SaleList() {
             <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Sales Overview</h2>
             <div className="h-1 w-12 bg-emerald-600 mt-1.5 rounded-full" />
           </div>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-all duration-200 shadow-md shadow-slate-900/10"
-          >
-            <Plus size={16} />
-            Add Sale
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all duration-200 shadow-md cursor-pointer"
+              title="Download Sales PDF Report"
+            >
+              <FileDown size={16} />
+              Export PDF
+            </button>
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-all duration-200 shadow-md shadow-slate-900/10 cursor-pointer"
+            >
+              <Plus size={16} />
+              Add Sale
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -1613,6 +1656,16 @@ export default function SaleList() {
         title="Delete Sale Record"
         itemName={deleteTarget ? `${deleteTarget.bikeCompany || ""} ${deleteTarget.bikeModel || ""} (${deleteTarget.registrationNo || "AFR"}) - Buyer: ${deleteTarget.buyerName || "—"}` : ""}
         description="Are you sure you want to delete this sale record? Deleting this sale will restore the bike's status in inventory and remove all associated financial revenue."
+      />
+
+      {/* Export Sales PDF Modal */}
+      <ExportPDFModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportSalesPDF}
+        title="Export Sales Summary Report"
+        description="Choose a date range or download all sales transactions."
+        defaultRange="all"
       />
     </div>
   );
