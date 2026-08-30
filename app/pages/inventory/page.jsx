@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Banknote, Loader2, RefreshCw, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import { downloadInventoryPDF } from "@/app/lib/pdfUtils";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 const PAGE_SIZE = 10;
@@ -56,13 +57,13 @@ export default function InventoryDashboard() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => downloadInventoryPDF(inventory, summary)}
-              className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-all shadow-md"
+              className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-all shadow-md cursor-pointer"
               title="Download Inventory PDF Report"
             >
               <FileDown size={16} /> Download PDF
             </button>
-            <button onClick={() => fetchInventory(page)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><RefreshCw size={16} /></button>
-            <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">
+            <button onClick={() => fetchInventory(page)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"><RefreshCw size={16} /></button>
+            <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer">
               <ArrowLeft size={16} /> Back to Dashboard
             </button>
           </div>
@@ -97,12 +98,6 @@ export default function InventoryDashboard() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Unsold Bikes in Stock ({total})</h2>
-            <button
-              onClick={() => downloadInventoryPDF(inventory, summary)}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-all"
-            >
-              <FileDown size={14} /> PDF Report
-            </button>
           </div>
 
           {loading ? (
