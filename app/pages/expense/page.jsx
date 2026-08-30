@@ -74,6 +74,29 @@ const getTodayLocalDate = () => {
   return `${year}-${month}-${day}`;
 };
 
+const safeISOString = (dateVal) => {
+  if (!dateVal) return getTodayLocalDate();
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return getTodayLocalDate();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    return getTodayLocalDate();
+  }
+};
+
+const emptyExpenseForm = {
+  title: "",
+  amount: "",
+  transactionType: "expense",
+  category: "General",
+  expenseDate: getTodayLocalDate(),
+  description: ""
+};
+
 export default function ExpenseDashboard() {
   const router = useRouter();
 
@@ -268,6 +291,7 @@ export default function ExpenseDashboard() {
     }
   };
 
+
   const openAddExpense = () => {
     setEditId(null);
     setIsViewOnly(false);
@@ -278,6 +302,7 @@ export default function ExpenseDashboard() {
     setFormError("");
     setShowModal(true);
   };
+
 
   const openEditExpense = (item) => {
     setEditId(item.id);
