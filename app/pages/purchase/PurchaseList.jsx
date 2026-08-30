@@ -98,6 +98,10 @@ export default function PurchaseList({ category }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isViewOnly) return;
+    if (form.purchaseDate && new Date(form.purchaseDate) > new Date()) {
+      setFormError("Purchase date cannot be in the future.");
+      return;
+    }
     setSubmitting(true);
     setFormError("");
     try {

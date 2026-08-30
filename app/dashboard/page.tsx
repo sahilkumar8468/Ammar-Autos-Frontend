@@ -57,10 +57,7 @@ export default function DashboardPage() {
         {/* Main Container */}
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           {/* Section Heading */}
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Core Showroom Modules</h2>
-            <div className="h-1 w-12 bg-slate-900 mt-1.5 rounded-full" />
-          </div>
+          
 
           {/* Bento Grid — Responsive Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 sm:gap-5">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Users, Building2, UserCheck, ArrowLeft } from "lucide-react";
 import CompanyPurchase from "./CompanyPurchase";
 import DealerPurchase from "./DealerPurchase";
+import LocalPurchase from "./LocalPurchase";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
 
 const purchaseCategories = [
