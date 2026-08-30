@@ -55,14 +55,32 @@ const formatDateTime = (value) => {
 
 const toDateTimeInputValue = (value) => {
   if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object") {
-    const secs = value._seconds ?? value.seconds;
-    if (typeof secs === "number") return new Date(secs * 1000).toISOString().slice(0, 16);
-    if (typeof value.toDate === "function") return value.toDate().toISOString().slice(0, 16);
+  let d;
+  if (typeof value === "object" && value !== null) {
+    if (typeof value.toDate === "function") {
+      d = value.toDate();
+    } else {
+      const secs = value._seconds ?? value.seconds;
+      if (typeof secs === "number") d = new Date(secs * 1000);
+    }
   }
-  const d = new Date(value);
-  return isNaN(d) ? "" : d.toISOString().slice(0, 16);
+  if (!d) d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const getTodayMaxDateTime = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T23:59`;
 };
 
 export default function DealerPurchase({ goBack }) {
@@ -150,7 +168,7 @@ export default function DealerPurchase({ goBack }) {
     };
   }, [showForm]);
 
-  const openAdd = () => { setForm(emptyForm); setEditId(null); setIsViewOnly(false); setFormError(""); setShowForm(true); };
+  const openAdd = () => { setForm({ ...emptyForm, purchaseDate: toDateTimeInputValue(new Date()) }); setEditId(null); setIsViewOnly(false); setFormError(""); setShowForm(true); };
   const openEdit = (p) => {
     setForm({
       customerName: p.customerName || "",
@@ -189,6 +207,14 @@ export default function DealerPurchase({ goBack }) {
     setSubmitting(true);
     setFormError("");
     try {
+      if (form.purchaseDate) {
+        const selected = new Date(form.purchaseDate);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (selected > endOfToday) {
+          throw new Error("Future dates cannot be selected for purchase date & time. Please select today or a past date.");
+        }
+      }
       const url = editId ? `${BASE_URL}/purchase/${editId}` : `${BASE_URL}/purchase`;
       const method = editId ? "PUT" : "POST";
       const payload = {
@@ -476,6 +502,7 @@ export default function DealerPurchase({ goBack }) {
                       onChange={handleChange}
                       disabled={isViewOnly}
                       required={field.required}
+                      max={field.type === "datetime-local" ? getTodayMaxDateTime() : undefined}
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       placeholder={field.type !== "date" && field.type !== "number" ? `Enter ${field.label.toLowerCase()}` : ""}
                     />

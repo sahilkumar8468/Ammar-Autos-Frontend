@@ -12,6 +12,14 @@ const CATEGORY_LABELS = {
   local_customer: "Local Customer Purchase",
 };
 
+const getTodayMaxDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function PurchaseList({ category }) {
   const router = useRouter();
   const [purchases, setPurchases] = useState([]);
@@ -93,6 +101,14 @@ export default function PurchaseList({ category }) {
     setSubmitting(true);
     setFormError("");
     try {
+      if (form.purchaseDate) {
+        const selected = new Date(form.purchaseDate);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (selected > endOfToday) {
+          throw new Error("Future dates cannot be selected for purchase date. Please select today or a past date.");
+        }
+      }
       const res = await fetch(`${URL}/purchase`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,6 +308,7 @@ export default function PurchaseList({ category }) {
                       onChange={handleChange}
                       disabled={isViewOnly}
                       required={field.required}
+                      max={field.type === "date" ? getTodayMaxDate() : undefined}
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-slate-50 hover:bg-white disabled:bg-slate-100 disabled:text-slate-600"
                       placeholder={field.type === "text" ? `Enter ${field.label.toLowerCase()}` : ""}
                     />

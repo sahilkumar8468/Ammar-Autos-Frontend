@@ -91,20 +91,64 @@ const extractTimestampSeconds = (ts) => {
   return ts._seconds || ts.seconds || null;
 };
 
-const toDateInputValue = (ts) => {
+const toLocalDateInputValue = (ts) => {
   if (!ts) return "";
-  if (typeof ts === "string") return ts.slice(0, 10);
-  const secs = extractTimestampSeconds(ts);
-  if (!secs) return "";
-  return new Date(secs * 1000).toISOString().slice(0, 10);
+  let d;
+  if (typeof ts === "object" && ts !== null) {
+    if (typeof ts.toDate === "function") {
+      d = ts.toDate();
+    } else {
+      const secs = ts._seconds ?? ts.seconds;
+      if (typeof secs === "number") d = new Date(secs * 1000);
+    }
+  }
+  if (!d) d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
+
+const toDateInputValue = toLocalDateInputValue;
 
 const toDateTimeInputValue = (ts) => {
   if (!ts) return "";
-  if (typeof ts === "string") return ts;
-  const secs = extractTimestampSeconds(ts);
-  if (!secs) return "";
-  return new Date(secs * 1000).toISOString().slice(0, 16);
+  let d;
+  if (typeof ts === "object" && ts !== null) {
+    if (typeof ts.toDate === "function") {
+      d = ts.toDate();
+    } else {
+      const secs = ts._seconds ?? ts.seconds;
+      if (typeof secs === "number") d = new Date(secs * 1000);
+    }
+  }
+  if (!d) d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const getTodayMaxDateTime = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T23:59`;
+};
+
+const getTodayMaxDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 export default function SaleList() {
@@ -168,7 +212,7 @@ export default function SaleList() {
       cnicNumber: s.buyerCnic || "",
       currentAddress: s.buyerCurrentAddress || "",
       permanentAddress: s.buyerPermanentAddress || "",
-      purchaseDate: new Date().toISOString().slice(0, 10),
+      purchaseDate: toLocalDateInputValue(new Date()),
       actualAmount: "",
       amountRemaining: "",
       additionalExpense: "",
@@ -207,6 +251,14 @@ export default function SaleList() {
     setReturnError("");
     setReturnSuccess("");
     try {
+      if (returnForm.purchaseDate) {
+        const selected = new Date(returnForm.purchaseDate);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (selected > endOfToday) {
+          throw new Error("Future dates cannot be selected for return purchase date. Please select today or a past date.");
+        }
+      }
       const payload = {
         category: returnForm.category || "local_customer",
         customerName: returnForm.customerName,
@@ -290,7 +342,7 @@ export default function SaleList() {
   }, [fetchSales, search]);
 
   const openAdd = () => {
-    setForm({ ...emptyForm, category: "local_customer" });
+    setForm({ ...emptyForm, category: "local_customer", saleDateTime: toDateTimeInputValue(new Date()) });
     setEditId(null);
     setIsReadOnly(false);
     setFormError("");
@@ -583,10 +635,18 @@ export default function SaleList() {
       return;
     }
 
-    setFormError("");
-    setSubmitting(true);
-
     try {
+      if (form.saleDateTime) {
+        const selected = new Date(form.saleDateTime);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (selected > endOfToday) {
+          setFormError("Future dates cannot be selected for sale date & time. Please select today or a past date.");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const uploadPendingPhotos = async (photos) => {
         const result = [];
         for (const photo of photos) {
@@ -1087,6 +1147,7 @@ export default function SaleList() {
                   <input
                     type="datetime-local" name="saleDateTime" value={form.saleDateTime} onChange={handleChange}
                     disabled={isReadOnly} readOnly={isReadOnly}
+                    max={getTodayMaxDateTime()}
                     className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                   />
                 </div>
@@ -1449,6 +1510,7 @@ export default function SaleList() {
                       type="date"
                       value={returnForm.purchaseDate}
                       onChange={(e) => setReturnForm({ ...returnForm, purchaseDate: e.target.value })}
+                      max={getTodayMaxDate()}
                       required
                       className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 hover:bg-white"
                     />

@@ -37,12 +37,20 @@ const EXPENSE_CATEGORIES = [
 
 const money = (n) => (n != null ? `Rs. ${Number(n).toLocaleString()}` : "—");
 
+const getTodayLocalDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function ExpenseDashboard() {
   const router = useRouter();
 
   // Date Range state — DEFAULT TO "today"
   const [range, setRange] = useState("today");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   const [search, setSearch] = useState("");
 
   // Data state
