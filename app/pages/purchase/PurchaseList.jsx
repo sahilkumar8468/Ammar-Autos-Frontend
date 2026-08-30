@@ -98,21 +98,18 @@ export default function PurchaseList({ category }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isViewOnly) return;
-    if (form.purchaseDate && new Date(form.purchaseDate) > new Date()) {
-      setFormError("Purchase date cannot be in the future.");
-      return;
+    if (form.purchaseDate) {
+      const selected = new Date(form.purchaseDate);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      if (selected > endOfToday) {
+        setFormError("Future dates cannot be selected for purchase date. Please select today or a past date.");
+        return;
+      }
     }
     setSubmitting(true);
     setFormError("");
     try {
-      if (form.purchaseDate) {
-        const selected = new Date(form.purchaseDate);
-        const endOfToday = new Date();
-        endOfToday.setHours(23, 59, 59, 999);
-        if (selected > endOfToday) {
-          throw new Error("Future dates cannot be selected for purchase date. Please select today or a past date.");
-        }
-      }
       const res = await fetch(`${URL}/purchase`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
