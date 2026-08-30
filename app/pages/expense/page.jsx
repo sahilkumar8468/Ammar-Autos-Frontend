@@ -30,7 +30,8 @@ import {
   Layers,
   Building2,
   UserCheck,
-  Banknote
+  Banknote,
+  AlertCircle
 } from "lucide-react";
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
@@ -93,6 +94,13 @@ const formatDate = (val) => {
   const d = new Date(val);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const formatTime = (val) => {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", hour12: true });
 };
 
 const emptyExpenseForm = {
