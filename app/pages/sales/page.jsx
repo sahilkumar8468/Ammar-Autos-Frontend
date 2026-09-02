@@ -7,7 +7,6 @@ import {
   Search, TrendingUp, Bike as BikeIcon, FileDown, ChevronLeft, ChevronRight,
   Eye, Calendar, CheckCircle2, AlertCircle, RotateCcw
 } from "lucide-react";
-import { downloadSalePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
 import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 import ExportPDFModal from "@/app/components/ExportPDFModal";
