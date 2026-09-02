@@ -179,6 +179,9 @@ export default function SaleList() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [regLookupStatus, setRegLookupStatus] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const totalAmountRemaining = Math.max(
     0,
@@ -719,6 +722,41 @@ export default function SaleList() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleExportSalesPDF = async ({ rangeType, startDate, endDate }) => {
+    const params = new URLSearchParams({ limit: "all" });
+    let rangeLabel = "All Time";
+    if (rangeType === "all") {
+      rangeLabel = "All Time (Full)";
+    } else if (rangeType === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      params.set("startDate", today);
+      params.set("endDate", today);
+      rangeLabel = `Today (${today})`;
+    } else if (rangeType === "thisMonth") {
+      const d = new Date();
+      const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      params.set("month", m);
+      rangeLabel = "This Month";
+    } else if (rangeType === "pastMonth") {
+      const d = new Date();
+      const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+      const lastDay = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+      params.set("startDate", firstDay);
+      params.set("endDate", lastDay);
+      rangeLabel = "Past Month";
+    } else if (rangeType === "custom" && startDate && endDate) {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+      rangeLabel = `${startDate} to ${endDate}`;
+    }
+
+    const res = await fetch(`${URL}/sale?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to fetch sales data for PDF export");
+    const exportSales = data.data || [];
+    downloadSalesSummaryPDF(exportSales, rangeLabel);
   };
 
   return (
