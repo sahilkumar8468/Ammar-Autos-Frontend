@@ -184,6 +184,16 @@ export default function SaleList() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
+  const totalAmountRemaining = Math.max(
+    0,
+    parseFloat(form.totalSaleAmount || 0) - parseFloat(form.advanceReceived || 0)
+  );
+
+  const installmentScheduleSum = (form.installments || []).reduce(
+    (sum, item) => sum + parseFloat(item.amount || 0),
+    0
+  );
+
   // Return / Buyback Modal state
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnSale, setReturnSale] = useState(null);
@@ -721,17 +731,17 @@ export default function SaleList() {
   const handleExportSalesPDF = async ({ rangeType, startDate, endDate }) => {
     const params = new URLSearchParams({ limit: "all" });
     let rangeLabel = "All Time";
-    if (rangeType === "today") {
+    if (rangeType === "all") {
+      rangeLabel = "All Time (Full)";
+    } else if (rangeType === "today") {
       const today = new Date().toISOString().slice(0, 10);
       params.set("startDate", today);
       params.set("endDate", today);
       rangeLabel = `Today (${today})`;
     } else if (rangeType === "thisMonth") {
       const d = new Date();
-      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-      params.set("startDate", firstDay);
-      params.set("endDate", lastDay);
+      const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      params.set("month", m);
       rangeLabel = "This Month";
     } else if (rangeType === "pastMonth") {
       const d = new Date();
@@ -748,15 +758,10 @@ export default function SaleList() {
 
     const res = await fetch(`${URL}/sale?${params.toString()}`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to fetch sales for PDF export");
+    if (!res.ok) throw new Error(data.message || "Failed to fetch sales data for PDF export");
     const exportSales = data.data || [];
     downloadSalesSummaryPDF(exportSales, rangeLabel);
   };
-
-  const installmentScheduleSum = (form.installments || []).reduce(
-    (sum, item) => sum + parseFloat(item.amount || 0),
-    0
-  );
 
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
