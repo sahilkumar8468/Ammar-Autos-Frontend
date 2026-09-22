@@ -27,6 +27,7 @@ const emptyForm = {
   chasisNo: "",
   engineNo: "",
   linkedPurchaseId: null,
+  purchaseCost: "",
   category: "local_customer",
 
   buyerName: "",
@@ -375,6 +376,7 @@ export default function SaleList() {
       chasisNo: s.chasisNo || "",
       engineNo: s.engineNo || "",
       linkedPurchaseId: s.linkedPurchaseId || null,
+      purchaseCost: s.purchaseCost !== undefined ? s.purchaseCost : "",
       category: s.category || "local_customer",
 
       buyerName: s.buyerName || "",
@@ -586,7 +588,7 @@ export default function SaleList() {
 
       if (data.isAfr) {
         setRegLookupStatus("afr");
-        setForm((prev) => ({ ...prev, linkedPurchaseId: null }));
+        setForm((prev) => ({ ...prev, linkedPurchaseId: null, purchaseCost: "" }));
         return;
       }
       if (!data.found) {
@@ -605,12 +607,13 @@ export default function SaleList() {
             chasisNo: chasisData.data.chasisNo || prev.chasisNo,
             engineNo: chasisData.data.engineNo || prev.engineNo,
             linkedPurchaseId: chasisData.purchaseId,
+            purchaseCost: chasisData.data.purchaseCost ?? chasisData.purchaseCost ?? prev.purchaseCost,
             category: chasisData.purchaseCategory || prev.category,
           }));
           return;
         }
         setRegLookupStatus("new");
-        setForm((prev) => ({ ...prev, linkedPurchaseId: null }));
+        setForm((prev) => ({ ...prev, linkedPurchaseId: null, purchaseCost: "" }));
         return;
       }
 
@@ -627,6 +630,7 @@ export default function SaleList() {
         chasisNo: data.data.chasisNo || prev.chasisNo,
         engineNo: data.data.engineNo || prev.engineNo,
         linkedPurchaseId: data.purchaseId,
+        purchaseCost: data.data.purchaseCost ?? data.purchaseCost ?? prev.purchaseCost,
         category: data.purchaseCategory || prev.category,
       }));
     } catch {
@@ -1005,7 +1009,16 @@ export default function SaleList() {
                   placeholder="e.g. LEA-1234 or AFR"
                   className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                 />
-                {!isReadOnly && regLookupStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">Matched an existing purchase — bike details auto-filled.</p>}
+                {!isReadOnly && regLookupStatus === "found" && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-emerald-600 font-medium">Matched an existing purchase — bike details auto-filled.</span>
+                    {Number(form.purchaseCost) > 0 && (
+                      <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md font-semibold border border-emerald-200">
+                        Purchase Cost: {money(form.purchaseCost)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {!isReadOnly && regLookupStatus === "afr" && <p className="text-xs text-amber-600 mt-1.5 font-medium">Applied For Registration — treated as a new, unregistered bike.</p>}
                 {!isReadOnly && regLookupStatus === "new" && <p className="text-xs text-slate-400 mt-1.5 font-medium">No matching purchase found — enter bike details manually.</p>}
                 {!isReadOnly && regLookupStatus === "sold" && <p className="text-xs text-red-600 mt-1.5 font-medium">This bike is already recorded as sold.</p>}
@@ -1211,6 +1224,21 @@ export default function SaleList() {
                     disabled={isReadOnly} readOnly={isReadOnly}
                     className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all duration-200 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-700"
                   />
+                  {Number(form.purchaseCost) > 0 && form.totalSaleAmount && (
+                    <div className="mt-1.5 flex items-center justify-between text-xs px-2.5 py-1.5 font-medium bg-slate-100/70 rounded-lg border border-slate-200">
+                      <span className="text-slate-600">
+                        Purchase Cost: <strong className="text-slate-800">{money(form.purchaseCost)}</strong>
+                      </span>
+                      <span className={parseFloat(form.totalSaleAmount || 0) - parseFloat(form.purchaseCost || 0) >= 0 ? "text-emerald-700 font-bold" : "text-rose-600 font-bold"}>
+                        {isReadOnly ? "Profit" : "Estimated Profit"}: {money(parseFloat(form.totalSaleAmount || 0) - parseFloat(form.purchaseCost || 0))}
+                      </span>
+                    </div>
+                  )}
+                  {isReadOnly && Number(form.purchaseCost) > 0 && !form.totalSaleAmount && (
+                    <div className="mt-1 text-xs text-slate-600">
+                      Purchase Cost: <strong className="text-slate-800">{money(form.purchaseCost)}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-5 mb-4">
