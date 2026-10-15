@@ -11,6 +11,7 @@ import MobileBottomNav from "@/app/components/MobileBottomNav";
 import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
 import ExportPDFModal from "@/app/components/ExportPDFModal";
 import { downloadSalePDF, downloadSalesSummaryPDF } from "@/app/lib/pdfUtils";
+import DashboardLayout from "@/app/components/DashboardLayout";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -166,6 +167,14 @@ export default function SaleList() {
 
   const [search, setSearch] = useState("");
   const [month, setMonth] = useState("");
+
+  // 3-field search matching Purchase UI
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchEngine, setSearchEngine] = useState("");
+  const [searchChasis, setSearchChasis] = useState("");
+  const [appliedCustomer, setAppliedCustomer] = useState("");
+  const [appliedEngine, setAppliedEngine] = useState("");
+  const [appliedChasis, setAppliedChasis] = useState("");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -325,6 +334,9 @@ export default function SaleList() {
       params.set("page", currentPage);
       if (month) params.set("month", month);
       if (search.trim()) params.set("search", search.trim());
+      if (appliedCustomer.trim()) params.set("customerName", appliedCustomer.trim());
+      if (appliedEngine.trim()) params.set("engineNo", appliedEngine.trim());
+      if (appliedChasis.trim()) params.set("chasisNo", appliedChasis.trim());
 
       const statsParams = new URLSearchParams();
       if (month) statsParams.set("month", month);
@@ -347,16 +359,22 @@ export default function SaleList() {
     } finally {
       setLoading(false);
     }
-  }, [month, search, page]);
+  }, [month, search, appliedCustomer, appliedEngine, appliedChasis, page]);
+
+  // Debounced auto-search when 3-field inputs change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedCustomer(searchCustomer);
+      setAppliedEngine(searchEngine);
+      setAppliedChasis(searchChasis);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchCustomer, searchEngine, searchChasis]);
 
   useEffect(() => {
-    setPage(1);
-  }, [month, search]);
-
-  useEffect(() => {
-    const t = setTimeout(fetchSales, search ? 350 : 0);
-    return () => clearTimeout(t);
-  }, [fetchSales, search]);
+    fetchSales();
+  }, [fetchSales]);
 
   const openAdd = () => {
     setForm({ ...emptyForm, category: "local_customer", saleDateTime: toDateTimeInputValue(new Date()) });
@@ -764,219 +782,231 @@ export default function SaleList() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/80">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200"
-              title="Back to Dashboard"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md shadow-emerald-600/10">
-              <span role="img" aria-label="sale" className="text-xl block leading-none">💰</span>
-            </div>
+    <DashboardLayout>
+      <div className="min-h-full bg-slate-50/50 text-slate-900 font-sans antialiased pb-16">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* Top Section Header */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Sales Dashboard</h1>
-              <p className="text-xs text-slate-500 font-medium -mt-0.5">Manage Bike Sales & Custom Installment Schedules</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-4 h-[3px] bg-emerald-600 rounded-full inline-block"></span>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Sales Records & Orders</h2>
+              </div>
+              <p className="text-sm font-bold text-[#0f283d]">All customer sales, installments & bike transactions</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/earning-dashboard")}
+                className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                title="View Earning & Profit"
+              >
+                <TrendingUp size={15} />
+                <span>Earning Analytics</span>
+              </button>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                title="Download Sales PDF Report"
+              >
+                <FileDown size={15} /> Export PDF
+              </button>
+              <button
+                onClick={openAdd}
+                className="flex items-center gap-2 bg-[#0f283d] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+              >
+                <Plus size={15} /> Add Sale
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => router.push("/earning-dashboard")}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl hover:bg-teal-700 transition-all shadow-md shadow-teal-600/20"
-          >
-            <TrendingUp size={16} />
-            View Earning & Profit
-          </button>
-        </div>
-      </header>
 
-      {/* Main Container */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Sales Overview</h2>
-            <div className="h-1 w-12 bg-emerald-600 mt-1.5 rounded-full" />
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all duration-200 shadow-md cursor-pointer"
-              title="Download Sales PDF Report"
-            >
-              <FileDown size={16} />
-              Export PDF
-            </button>
-            <button
-              onClick={openAdd}
-              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-all duration-200 shadow-md shadow-slate-900/10 cursor-pointer"
-            >
-              <Plus size={16} />
-              Add Sale
-            </button>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-50 text-blue-600"><BikeIcon size={22} /></div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Bikes Sold This Month</p>
-              <p className="text-2xl font-bold text-slate-900">{stats.bikesSold ?? 0}</p>
+          {/* KPI Stats in Purchase Card Style */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-blue-50 text-blue-600"><BikeIcon size={20} /></div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Bikes Sold This Month</p>
+                <p className="text-xl font-bold text-slate-900">{stats.bikesSold ?? 0}</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600"><TrendingUp size={20} /></div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue This Month</p>
+                <p className="text-xl font-bold text-emerald-700">{money(stats.revenue ?? 0)}</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600"><TrendingUp size={22} /></div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue This Month</p>
-              <p className="text-2xl font-bold text-slate-900">{money(stats.revenue ?? 0)}</p>
+
+          {/* Filter Bar - Matching CompanyPurchase 3-Field Search Style */}
+          <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center gap-2 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search customer / buyer name..."
+                  value={searchCustomer}
+                  onChange={(e) => setSearchCustomer(e.target.value)}
+                  className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search engine no..."
+                  value={searchEngine}
+                  onChange={(e) => setSearchEngine(e.target.value)}
+                  className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search chasis or reg no..."
+                  value={searchChasis}
+                  onChange={(e) => setSearchChasis(e.target.value)}
+                  className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
+                />
+              </div>
             </div>
+            {totalCount > 0 && (
+              <p className="text-xs text-slate-400 mt-2">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} records
+              </p>
+            )}
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by bike no, chasis no, or customer CNIC"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-white"
-            />
-          </div>
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 bg-white"
-          />
-          {(search || month) && (
-            <button
-              onClick={() => { setSearch(""); setMonth(""); setPage(1); }}
-              className="text-sm font-semibold text-slate-500 hover:text-slate-900 px-3"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+          {error && <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
 
-        {error && <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
-
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-20 text-slate-400">
-              <Loader2 size={28} className="animate-spin" />
-            </div>
-          ) : sales.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
-              <span className="text-4xl">🏍️</span>
-              <p className="text-sm font-medium">No sales yet. Add your first sale.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    {["#", "Reg. No", "Bike", "Buyer", "CNIC", "Type", "Amount", "Remaining", "Date", "Action"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sales.map((s, i) => (
-                    <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150">
-                      <td className="px-4 py-3 text-slate-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">
-                        {s.registrationStatus === "AFR" ? "AFR" : s.registrationNo || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{[s.bikeCompany, s.bikeModel].filter(Boolean).join(" ") || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerName || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerCnic || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap capitalize">
-                        {s.saleType || "—"}
-                        {s.saleType === "installment" && Array.isArray(s.installments) && (
-                          <span className="ml-1 text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-full font-bold">
-                            {s.installments.length} mo
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-emerald-700 font-semibold whitespace-nowrap">{money(s.totalSaleAmount)}</td>
-                      <td className="px-4 py-3 font-semibold whitespace-nowrap">
-                        {s.amountRemaining > 0
-                          ? <span className="text-rose-600">{money(s.amountRemaining)}</span>
-                          : <span className="text-emerald-600">Paid</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.saleDateTime || s.saleDate)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openView(s)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200" title="View (Readonly)">
-                            <Eye size={14} />
-                          </button>
-                          <button onClick={() => openReturnModal(s)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200" title="Return / Buy Back Bike">
-                            <RotateCcw size={14} />
-                          </button>
-                          <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="Edit">
-                            <Pencil size={14} />
-                          </button>
-                          <button onClick={() => setDeleteTarget(s)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200" title="Delete">
-                            <Trash2 size={14} />
-                          </button>
-                          <button onClick={() => downloadSalePDF(s)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200" title="Download PDF">
-                            <FileDown size={14} />
-                          </button>
-                        </div>
-                      </td>
+          {/* Table Container - Exact Match to CompanyPurchase.jsx */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-20 text-slate-400">
+                <Loader2 size={28} className="animate-spin" />
+              </div>
+            ) : sales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
+                <span className="text-4xl">📋</span>
+                <p className="text-sm font-medium">No sales records found.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      {[
+                        "#",
+                        "Customer Name",
+                        "Father Name",
+                        "CNIC",
+                        "Bike",
+                        "Reg. No",
+                        "Chasis No",
+                        "Engine No",
+                        "Sale Type",
+                        "Total Amount",
+                        "Advance",
+                        "Remaining",
+                        "Date",
+                        "Actions"
+                      ].map((h) => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sales.map((s, i) => {
+                      const idCellClass = "px-4 py-3 text-slate-600 whitespace-nowrap";
+                      return (
+                        <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150">
+                          <td className="px-4 py-3 text-slate-400 font-medium">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{s.buyerName || "—"}</td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerFatherName || "—"}</td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.buyerCnic || "—"}</td>
+                          <td className={idCellClass}>{[s.bikeCompany, s.bikeModel].filter(Boolean).join(" ") || "—"}</td>
+                          <td className={idCellClass}>{s.registrationStatus === "AFR" ? "AFR" : (s.registrationNo || "—")}</td>
+                          <td className={idCellClass}>{s.chasisNo || "—"}</td>
+                          <td className={idCellClass}>{s.engineNo || "—"}</td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap capitalize">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${
+                              s.saleType === "installment"
+                                ? "bg-teal-50 text-teal-700 border border-teal-200"
+                                : "bg-slate-100 text-slate-700"
+                            }`}>
+                              {s.saleType || "cash"}
+                              {s.saleType === "installment" && Array.isArray(s.installments) && (
+                                <span className="ml-1 text-[10px] font-bold">({s.installments.length}m)</span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-emerald-700 font-semibold whitespace-nowrap">{money(s.totalSaleAmount)}</td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{s.advanceReceived != null ? money(s.advanceReceived) : "—"}</td>
+                          <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                            {s.amountRemaining > 0
+                              ? <span className="text-rose-600 font-semibold">{money(s.amountRemaining)}</span>
+                              : <span className="text-emerald-600 font-semibold">Paid</span>}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.saleDateTime || s.saleDate)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => openView(s)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 cursor-pointer" title="View Sale Details">
+                                <Eye size={14} />
+                              </button>
+                              <button onClick={() => openReturnModal(s)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200 cursor-pointer" title="Return / Buy Back Bike">
+                                <RotateCcw size={14} />
+                              </button>
+                              <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 cursor-pointer" title="Edit">
+                                <Pencil size={14} />
+                              </button>
+                              <button onClick={() => setDeleteTarget(s)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 cursor-pointer" title="Delete">
+                                <Trash2 size={14} />
+                              </button>
+                              <button onClick={() => downloadSalePDF(s)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200 cursor-pointer" title="Download PDF">
+                                <FileDown size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer">
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                .reduce((acc, n, idx, arr) => {
+                  if (idx > 0 && n - arr[idx - 1] > 1) acc.push("...");
+                  acc.push(n);
+                  return acc;
+                }, [])
+                .map((item, idx) =>
+                  item === "..." ? (
+                    <span key={`dots-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button key={item} onClick={() => setPage(item)} className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${page === item ? "bg-[#0f283d] text-white shadow-md" : "border border-slate-200 text-slate-600 hover:bg-slate-100"}`}>
+                      {item}
+                    </button>
+                  )
+                )}
+              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer">
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-6">
-            <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-              <ChevronLeft size={16} />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
-              .reduce((acc, n, idx, arr) => {
-                if (idx > 0 && n - arr[idx - 1] > 1) acc.push("...");
-                acc.push(n);
-                return acc;
-              }, [])
-              .map((item, idx) =>
-                item === "..." ? (
-                  <span key={`dots-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
-                ) : (
-                  <button key={item} onClick={() => setPage(item)} className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all duration-200 ${page === item ? "bg-slate-900 text-white shadow-md" : "border border-slate-200 text-slate-600 hover:bg-slate-100"}`}>
-                    {item}
-                  </button>
-                )
-              )}
-            <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
-
-        {totalCount > 0 && (
-          <p className="text-center text-xs text-slate-400 mt-2">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} records
-          </p>
-        )}
-      </main>
+        </main>
 
       <MobileBottomNav />
 
@@ -1700,6 +1730,7 @@ export default function SaleList() {
         description="Choose a date range or download all sales transactions."
         defaultRange="all"
       />
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

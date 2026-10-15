@@ -36,6 +36,7 @@ import {
 import { downloadExpensePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
 import DeleteConfirmModal from "@/app/components/DeleteConfirmModal";
+import DashboardLayout from "@/app/components/DashboardLayout";
 
 const URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
 
@@ -451,18 +452,12 @@ export default function ExpenseDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
-      {/* HEADER BANNER */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs backdrop-blur-md bg-white/90">
+    <DashboardLayout>
+      <div className="min-h-full bg-slate-50 text-slate-900 font-sans pb-16">
+        {/* HEADER BANNER */}
+        <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs backdrop-blur-md bg-white/90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-              title="Back to Dashboard"
-            >
-              <ArrowLeft size={22} />
-            </button>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">📊</span>
@@ -1421,6 +1416,7 @@ export default function ExpenseDashboard() {
       />
 
       <MobileBottomNav />
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

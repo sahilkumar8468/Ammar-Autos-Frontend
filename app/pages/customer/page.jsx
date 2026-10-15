@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { downloadSalePDF } from "@/app/lib/pdfUtils";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import DashboardLayout from "@/app/components/DashboardLayout";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -166,9 +167,10 @@ export default function PaymentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm backdrop-blur-md">
+    <DashboardLayout>
+      <div className="min-h-full bg-slate-50/50 text-slate-900 font-sans antialiased pb-16">
+        {/* Header */}
+        <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md">
@@ -191,9 +193,6 @@ export default function PaymentDashboard() {
             )}
             <button onClick={fetchCustomers} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors">
               <RefreshCw size={16} />
-            </button>
-            <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">
-              <ArrowLeft size={16} /> Back
             </button>
           </div>
         </div>
@@ -478,6 +477,7 @@ export default function PaymentDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

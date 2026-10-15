@@ -142,18 +142,16 @@ export default function CompanyPurchase({ goBack }) {
 
   useEffect(() => { fetchPurchases(); }, [fetchPurchases]);
 
-  const handleSearch = () => {
-    setAppliedEngine(searchEngine);
-    setAppliedChasis(searchChasis);
-    setAppliedCustomer(searchCustomer);
-    setPage(1);
-  };
-
-  const handleClearFilters = () => {
-    setSearchEngine(""); setSearchChasis(""); setSearchCustomer("");
-    setAppliedEngine(""); setAppliedChasis(""); setAppliedCustomer("");
-    setPage(1);
-  };
+  // Debounced auto-search when inputs change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedEngine(searchEngine);
+      setAppliedChasis(searchChasis);
+      setAppliedCustomer(searchCustomer);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchEngine, searchChasis, searchCustomer]);
 
   const goToPage = (p) => { setPage(p); };
 
@@ -295,38 +293,18 @@ export default function CompanyPurchase({ goBack }) {
   const endItem = Math.min(page * PAGE_SIZE, totalCount);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/80">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md shadow-slate-900/10">
-              <span role="img" aria-label="motorbike" className="text-xl block leading-none">🏍️</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Ammar Autos</h1>
-              <p className="text-xs text-slate-500 font-medium -mt-0.5">Company purchase</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => fetchPurchases(page)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200" title="Refresh">
-              <RefreshCw size={16} />
-            </button>
-            <button onClick={goBack} className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors duration-200">
-              <ArrowLeft size={16} /> Back
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-6 py-10">
+    <div className="bg-transparent text-slate-900 font-sans antialiased">
+      <div className="w-full">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Company Purchase Records</h2>
-            <div className="h-1 w-12 bg-slate-900 mt-2 rounded-full" />
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-4 h-[3px] bg-[#0d9488] rounded-full inline-block"></span>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Company Purchase Records</h2>
+            </div>
+            <p className="text-sm font-bold text-[#0f283d]">All records and documentation</p>
           </div>
-          <button onClick={openAdd} className="flex items-center gap-2 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5">
-            <Plus size={16} /> Add Purchase
+          <button onClick={openAdd} className="flex items-center gap-2 bg-[#0d9488] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-[#0f766e] transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+            <Plus size={15} /> Add Purchase
           </button>
         </div>
 
@@ -340,7 +318,6 @@ export default function CompanyPurchase({ goBack }) {
                 placeholder="Search customer name..."
                 value={searchCustomer}
                 onChange={e => setSearchCustomer(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
                 className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
               />
             </div>
@@ -351,7 +328,6 @@ export default function CompanyPurchase({ goBack }) {
                 placeholder="Search engine no..."
                 value={searchEngine}
                 onChange={e => setSearchEngine(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
                 className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
               />
             </div>
@@ -362,15 +338,8 @@ export default function CompanyPurchase({ goBack }) {
                 placeholder="Search chasis no..."
                 value={searchChasis}
                 onChange={e => setSearchChasis(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSearch()}
                 className="w-full text-sm bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
               />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={handleSearch} className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-all duration-200 whitespace-nowrap">Search</button>
-              {(appliedEngine || appliedChasis || appliedCustomer) && (
-                <button onClick={handleClearFilters} className="px-4 py-2 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 whitespace-nowrap">Clear</button>
-              )}
             </div>
           </div>
           {totalCount > 0 && (
@@ -479,7 +448,7 @@ export default function CompanyPurchase({ goBack }) {
             </button>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Add / Edit / View Modal */}
       {showForm && (

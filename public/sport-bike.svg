@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="100%" height="100%" fill="none">
+  <!-- Speed lines -->
+  <g stroke="#94a3b8" stroke-width="4" stroke-linecap="round" opacity="0.6">
+    <line x1="20" y1="210" x2="80" y2="210" />
+    <line x1="5" y1="225" x2="60" y2="225" stroke-width="3" />
+    <line x1="30" y1="240" x2="90" y2="240" stroke-width="3.5" />
+    <line x1="10" y1="255" x2="70" y2="255" stroke-width="2.5" />
+  </g>
+
+  <!-- Rear Wheel -->
+  <g stroke="#64748b" stroke-width="6">
+    <circle cx="120" cy="210" r="55" stroke="#475569" stroke-width="8" stroke-dasharray="14 10" />
+    <circle cx="120" cy="210" r="42" stroke="#94a3b8" stroke-width="3" />
+    <circle cx="120" cy="210" r="22" fill="#cbd5e1" stroke="#475569" stroke-width="4" />
+    <circle cx="120" cy="210" r="8" fill="#334155" />
+    <!-- Spokes -->
+    <line x1="120" y1="168" x2="120" y2="188" stroke="#94a3b8" stroke-width="3" />
+    <line x1="120" y1="232" x2="120" y2="252" stroke="#94a3b8" stroke-width="3" />
+    <line x1="78" y1="210" x2="98" y2="210" stroke="#94a3b8" stroke-width="3" />
+    <line x1="142" y1="210" x2="162" y2="210" stroke="#94a3b8" stroke-width="3" />
+    <!-- Brake Disc -->
+    <circle cx="120" cy="210" r="32" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4" />
+  </g>
+
+  <!-- Front Wheel -->
+  <g stroke="#64748b" stroke-width="6">
+    <circle cx="390" cy="210" r="55" stroke="#475569" stroke-width="8" stroke-dasharray="14 10" />
+    <circle cx="390" cy="210" r="42" stroke="#94a3b8" stroke-width="3" />
+    <circle cx="390" cy="210" r="22" fill="#cbd5e1" stroke="#475569" stroke-width="4" />
+    <circle cx="390" cy="210" r="8" fill="#334155" />
+    <!-- Spokes -->
+    <line x1="390" y1="168" x2="390" y2="188" stroke="#94a3b8" stroke-width="3" />
+    <line x1="390" y1="232" x2="390" y2="252" stroke="#94a3b8" stroke-width="3" />
+    <line x1="348" y1="210" x2="368" y2="210" stroke="#94a3b8" stroke-width="3" />
+    <line x1="412" y1="210" x2="432" y2="210" stroke="#94a3b8" stroke-width="3" />
+    <!-- Brake Disc -->
+    <circle cx="390" cy="210" r="32" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4" />
+  </g>
+
+  <!-- Front Fork & Suspension -->
+  <path d="M390 210 L335 85" stroke="#475569" stroke-width="7" stroke-linecap="round" />
+  <path d="M398 210 L345 88" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" />
+  <!-- Front Mudguard -->
+  <path d="M350 170 Q370 145 425 175" stroke="#334155" stroke-width="6" fill="none" stroke-linecap="round" />
+
+  <!-- Rear Swingarm & Shock -->
+  <path d="M120 210 L210 205" stroke="#475569" stroke-width="8" stroke-linecap="round" />
+  <path d="M165 208 L205 160" stroke="#ef4444" stroke-width="6" stroke-linecap="round" />
+
+  <!-- Exhaust Pipe -->
+  <path d="M205 215 C215 235 240 235 270 215" stroke="#94a3b8" stroke-width="7" fill="none" />
+  <path d="M150 200 L210 220" stroke="#64748b" stroke-width="9" stroke-linecap="round" />
+  <!-- Exhaust Canister -->
+  <rect x="130" y="190" width="80" height="20" rx="6" transform="rotate(-18 130 190)" fill="#475569" stroke="#334155" stroke-width="3" />
+
+  <!-- Engine Block & Transmission -->
+  <path d="M205 160 L280 160 L295 210 L215 220 Z" fill="#94a3b8" stroke="#475569" stroke-width="5" stroke-linejoin="round" />
+  <!-- Engine Fins -->
+  <line x1="225" y1="175" x2="275" y2="175" stroke="#475569" stroke-width="3" />
+  <line x1="225" y1="185" x2="278" y2="185" stroke="#475569" stroke-width="3" />
+  <line x1="230" y1="195" x2="270" y2="195" stroke="#475569" stroke-width="3" />
+  <circle cx="235" cy="200" r="10" fill="#64748b" stroke="#334155" stroke-width="2" />
+
+  <!-- Frame (Chassis) -->
+  <path d="M210 155 L325 105 L300 160 L210 155" stroke="#1e293b" stroke-width="7" fill="none" stroke-linejoin="round" />
+  <path d="M210 155 L215 215" stroke="#1e293b" stroke-width="6" />
+
+  <!-- Fuel Tank & Fairing (Sportbike Shape) -->
+  <path d="M220 145 C230 110 260 85 305 85 C330 85 345 92 365 105 L350 135 L285 145 Z" fill="#0f172a" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
+  <path d="M305 85 C320 85 345 95 385 110 L370 145 L320 155 L285 145 Z" fill="#1e293b" stroke="#0f172a" stroke-width="3" stroke-linejoin="round" />
+
+  <!-- Front Cowl / Windscreen / Headlight -->
+  <path d="M335 85 L355 55 C370 60 380 70 395 85 L420 110 L385 115 Z" fill="#0ea5e9" opacity="0.4" stroke="#0284c7" stroke-width="3" stroke-linejoin="round" />
+  <path d="M365 100 L410 108 L385 125 Z" fill="#f8fafc" stroke="#334155" stroke-width="3" stroke-linejoin="round" />
+  <!-- Headlight beam glow -->
+  <polygon points="410,108 430,112 415,122" fill="#38bdf8" />
+
+  <!-- Handlebars & Mirror -->
+  <path d="M330 80 L350 75" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+  <path d="M345 75 L360 55" stroke="#334155" stroke-width="3" stroke-linecap="round" />
+  <rect x="355" y="48" width="16" height="10" rx="3" fill="#64748b" transform="rotate(-15 355 48)" />
+
+  <!-- Rider Seat & Rear Tail Cowl -->
+  <path d="M220 145 C235 145 250 152 265 152 L260 140 C240 135 225 140 220 145 Z" fill="#334155" stroke="#1e293b" stroke-width="2" />
+  <!-- Aerodynamic Tail (Pointy Sportbike Rear) -->
+  <path d="M220 145 L150 120 C145 118 140 125 148 132 L200 162 Z" fill="#0f172a" stroke="#0f172a" stroke-width="3" stroke-linejoin="round" />
+  <!-- Tail Light -->
+  <polygon points="144,122 136,124 140,130 148,128" fill="#ef4444" />
+</svg>
